@@ -11,6 +11,8 @@ set(PAVEL_PISA "Pavel Pisa <pisa@cmp.felk.cvut.cz>")
 set(JAKUB_DUPAK "Jakub Dupak <dev@jakubdupak.com>")
 set(MAX_HOLLMANN "Max Hollmann <hollmmax@fel.cvut.cz>")
 
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
 set(PROJECT_HOMEPAGE_URL "https://github.com/cvut/qtrvsim")
 set(GENERIC_NAME "RISC-V CPU simulator")
 set(LICENCE "GPL-3.0-or-later")

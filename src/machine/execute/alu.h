@@ -3,6 +3,7 @@
 
 #include "execute/alu_op.h"
 #include "execute/mul_op.h"
+#include "execute/vector.h"
 #include "register_value.h"
 
 #include <cstdint>
@@ -21,6 +22,7 @@ enum class AluComponent {
 union AluCombinedOp {
     AluOp alu_op;
     MulOp mul_op;
+    VectorOp vector_op;
 };
 
 /**

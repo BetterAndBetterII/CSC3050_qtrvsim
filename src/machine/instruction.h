@@ -19,10 +19,13 @@ namespace machine {
 // 4 is max number of parts in currently used instructions.
 using BitArg = SplitBitField<4>;
 
-static constexpr std::array<const char *const, 32> Rv_regnames = {
+static constexpr std::array<const char *const, 64> Rv_regnames = {
     "zero", "ra", "sp", "gp", "tp",  "t0",  "t1", "t2", "s0", "s1", "a0",
     "a1",   "a2", "a3", "a4", "a5",  "a6",  "a7", "s2", "s3", "s4", "s5",
-    "s6",   "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6",
+    "s6",   "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6", "v0",
+    "v1",   "v2", "v3", "v4", "v5",  "v6",  "v7", "v8", "v9", "v10", "v11",
+    "v12",  "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
+    "v22",  "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
 };
 
 enum InstructionFlags : unsigned {
@@ -46,6 +49,7 @@ enum InstructionFlags : unsigned {
     IMF_ECALL = 1L << 16,       // seems easiest to encode ecall and ebreak as flags, but they might
     IMF_EBREAK = 1L << 17,      // be moved elsewhere in case we run out of InstructionFlag space.
     IMF_XRET = 1L << 18,        /**< Return from exception, MRET and SRET  */
+    IMF_VECTOR = 1L << 19,      /**< Vector instruction */
 
     // Extensions:
     // =============================================================================================

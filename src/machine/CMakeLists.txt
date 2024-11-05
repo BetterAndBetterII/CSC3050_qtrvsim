@@ -92,6 +92,20 @@ if(NOT ${WASM})
 			PRIVATE ${QtLib}::Core ${QtLib}::Test)
 	add_test(NAME alu COMMAND alu_test)
 
+	add_executable(test_vector
+			execute/vector.test.cpp
+			execute/vector.test.h
+			execute/vector.cpp
+			execute/vector.h
+			vector_registers.cpp
+			vector_register.h
+			simulator_exception.cpp
+			simulator_exception.h
+	)
+	target_link_libraries(test_vector
+			PRIVATE ${QtLib}::Core ${QtLib}::Test)
+	add_test(NAME vector COMMAND test_vector)
+
 	add_executable(registers_test
 			register_value.h
 			registers.cpp

@@ -20,6 +20,7 @@ enum AccessControl {
     AC_U64,
     AC_LR32,
     AC_SC32,
+    AC_V32,
     AC_AMOSWAP32,
     AC_AMOADD32,
     AC_AMOXOR32,

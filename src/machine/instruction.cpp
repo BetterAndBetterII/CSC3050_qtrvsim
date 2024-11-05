@@ -4,6 +4,7 @@
 #include "common/math/bit_ops.h"
 #include "common/string_utils.h"
 #include "csr/controlstate.h"
+#include "execute/vector_op.h"
 #include "simulator_exception.h"
 #include "utils.h"
 
@@ -105,6 +106,7 @@ bool argdesbycode_filled = fill_argdesbycode();
     (IMF_SUPPORTED | IMF_ALUSRC | IMF_MEMWRITE | IMF_MEM | IMF_ALU_REQ_RS | IMF_ALU_REQ_RT)
 #define FLAGS_ALU_T_R_D (IMF_SUPPORTED | IMF_REGWRITE)
 #define FLAGS_ALU_T_R_STD (FLAGS_ALU_T_R_D | IMF_ALU_REQ_RS | IMF_ALU_REQ_RT)
+#define FLAGS_ALU_T_R_STD_VECTOR (FLAGS_ALU_T_R_STD | IMF_VECTOR)
 
 #define FLAGS_AMO_LOAD (FLAGS_ALU_I_LOAD | IMF_AMO)
 // FLAGS_AMO_STORE for store conditional requires IMF_MEMREAD to ensure stalling because
@@ -399,6 +401,79 @@ static const struct InstructionMap STORE_map[] = {
 static const struct InstructionMap ADD_map[] = {
     {"add", IT_R, { .alu_op=AluOp::ADD }, NOMEM, nullptr, {"d", "s", "t"}, 0x00000033, 0xfe00707f, { .flags = FLAGS_ALU_T_R_STD }, nullptr},
     {"sub", IT_R, { .alu_op=AluOp::ADD }, NOMEM, nullptr, {"d", "s", "t"}, 0x40000033, 0xfe00707f, { .flags = FLAGS_ALU_T_R_STD | IMF_ALU_MOD }, inst_aliases_sub},
+};
+
+static const struct InstructionMap VECTOR_OP_map[] = {
+    {"vsetvl", IT_R, 
+        { .vector_op=VectorOp::VSETVL },
+        NOMEM, 
+        nullptr,
+        {"d", "s", "t"},
+        0x00007057,
+        0xfe007fff,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        nullptr
+    },
+    {"vadd.vv", IT_R,
+        { .vector_op=VectorOp::VADDV },
+        NOMEM,
+        nullptr,
+        {"vd", "vs2", "vs1"},
+        0x00000057,  // 操作码
+        0xfc00707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        nullptr
+    },
+    {"vadd.vx", IT_R,
+        { .vector_op=VectorOp::VADDX },
+        NOMEM,
+        nullptr,
+        {"vd", "vs2", "s"},  // s 表示标量寄存器
+        0x00004057,  // 操作码
+        0xfc00707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR },  // 添加标量操作数标志
+        nullptr
+    },
+    {"vadd.vi", IT_R,
+        { .vector_op=VectorOp::VADDI },
+        NOMEM,
+        nullptr,
+        {"vd", "vs2", "j"},  // j 表示立即数
+        0x00003057,  // 操作码
+        0xfc00707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR },  // 添加立即数标志
+        nullptr
+    },
+    {"vmul.vv", IT_R,
+        { .vector_op=VectorOp::VMULV },
+        NOMEM,
+        nullptr,
+        {"vd", "vs2", "vs1"},
+        0x00002057,  // 操作码
+        0xfc00707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        nullptr
+    },
+    {"vlw.v", IT_I,
+        { .vector_op=VectorOp::VL },
+        AC_V32,  // 向量加载
+        nullptr,
+        {"vd", "o(s)"},
+        0x00000007,  // 操作码
+        0x0000707f,
+        { .flags = FLAGS_ALU_I_LOAD | IMF_VECTOR },
+        nullptr
+    },
+    {"vsw.v", IT_S,
+        { .vector_op=VectorOp::VS },
+        AC_V32,  // 向量存储
+        nullptr,
+        {"vs3", "q(s)"},
+        0x00000027,  // 操作码
+        0x0000707f,
+        { .flags = FLAGS_ALU_I_STORE | IMF_VECTOR },
+        nullptr
+    }
 };
 
 static const struct InstructionMap SR_map[] = {
