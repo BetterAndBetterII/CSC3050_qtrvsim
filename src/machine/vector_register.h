@@ -2,8 +2,9 @@
 #define VECTOR_REGISTER_H
 
 #include <QMetaType>
-#include <vector>
 #include <cstdint>
+#include <vector>
+constexpr size_t VECTOR_REGISTER_COUNT = 32;  // 32个向量寄存器
 
 namespace machine {
 
@@ -16,8 +17,8 @@ namespace machine {
 class VectorRegister {
 public:
     // 构造函数
-    inline explicit VectorRegister(size_t size) : data(size) {}  // 移除constexpr
-    inline VectorRegister() = default;  // 默认构造函数
+    inline explicit VectorRegister(size_t size) : data(size) {}
+    inline VectorRegister() : data(VECTOR_REGISTER_COUNT) {}
 
     [[nodiscard]] inline uint32_t get_u32(uint32_t index) const {
         return *reinterpret_cast<const uint32_t*>(&data[index * 4]);

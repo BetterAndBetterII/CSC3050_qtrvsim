@@ -421,7 +421,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"vd", "vs2", "vs1"},
         0x00000057,  // 操作码
         0xfc00707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
     {"vadd.vx", IT_R,
@@ -431,7 +431,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"vd", "vs2", "s"},  // s 表示标量寄存器
         0x00004057,  // 操作码
         0xfc00707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR },  // 添加标量操作数标志
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
     {"vadd.vi", IT_R,
@@ -441,7 +441,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"vd", "vs2", "j"},  // j 表示立即数
         0x00003057,  // 操作码
         0xfc00707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR },  // 添加立即数标志
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
     {"vmul.vv", IT_R,

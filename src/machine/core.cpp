@@ -24,6 +24,7 @@ static InstructionFlags unsupported_inst_flags_to_check(Xlen xlen,
 
 Core::Core(
     Registers *regs,
+    VectorRegisters *vregs,
     BranchPredictor *predictor,
     FrontendMemory *mem_program,
     FrontendMemory *mem_data,
@@ -39,6 +40,7 @@ Core::Core(
     , check_inst_flags_val(IMF_SUPPORTED)
     , check_inst_flags_mask(unsupported_inst_flags_to_check(xlen, isa_word))
     , regs(regs)
+    , vregs(vregs)
     , control_state(control_state)
     , predictor(predictor)
     , mem_data(mem_data)
@@ -73,6 +75,10 @@ unsigned Core::get_stall_count() const {
 
 Registers *Core::get_regs() const {
     return regs;
+}
+
+VectorRegisters *Core::get_vregs() const {
+    return vregs;
 }
 
 CSR::ControlState *Core::get_control_state() const {
@@ -278,6 +284,34 @@ enum ExceptionCause Core::memory_special(
     return EXCAUSE_NONE;
 }
 
+enum ExceptionCause Core::memory_special(
+    enum AccessControl memctl,
+    int mode,
+    bool memread,
+    bool memwrite,
+    VectorRegister &towrite_val,
+    VectorRegister* rt_value,
+    Address mem_addr) {
+    Q_UNUSED(mode)
+
+    switch (memctl) {
+    case AC_V32:
+        if (memread) {
+            for (int i = 0; i < 32; i++) {
+                towrite_val.set_u32(i, mem_data->read_u32(mem_addr + i * 4));
+            }
+        } else if (memwrite) {
+            for (int i = 0; i < 32; i++) {
+                mem_data->write_u32(mem_addr + i * 4, rt_value->get_u32(i));
+            }
+        }
+        break;
+    default: break;
+    }
+
+    return EXCAUSE_NONE;
+}
+
 FetchState Core::fetch(PCInterstage pc, bool skip_break) {
     if (pc.stop_if) { return {}; }
 
@@ -322,12 +356,26 @@ DecodeState Core::decode(const FetchInterstage &dt) {
     RegisterId num_rs = (flags & (IMF_ALU_REQ_RS | IMF_ALU_RS_ID)) ? dt.inst.rs() : 0;
     RegisterId num_rt = (flags & IMF_ALU_REQ_RT) ? dt.inst.rt() : 0;
     RegisterId num_rd = (flags & IMF_REGWRITE) ? dt.inst.rd() : 0;
-    // When instruction does not specify register, it is set to x0 as operations on x0 have no
-    // side effects (not even visualization).
-    RegisterValue val_rs
-        = (flags & IMF_ALU_RS_ID) ? uint64_t(size_t(num_rs)) : regs->read_gp(num_rs);
-    RegisterValue val_rt = regs->read_gp(num_rt);
-    RegisterValue immediate_val = dt.inst.immediate();
+    RegisterValue val_rs = 0;
+    RegisterValue val_rt = 0;
+    RegisterValue immediate_val = 0;
+    VectorRegister* vs1 = nullptr;
+    VectorRegister* vs2 = nullptr;
+    VectorRegister* vd = nullptr;
+    // Determine if instruction is a vector instruction.
+    if (flags & IMF_VECTOR) {
+        // Read Vector Registers
+        vs1 = vregs->get_vr(num_rs);
+        vs2 = vregs->get_vr(num_rt);
+        // Write Vector Register
+        vd = vregs->get_vr(num_rd);
+    } else {
+        // When instruction does not specify register, it is set to x0 as operations on x0 have no
+        // side effects (not even visualization).
+        val_rs = (flags & IMF_ALU_RS_ID) ? uint64_t(size_t(num_rs)) : regs->read_gp(num_rs);
+        val_rt = regs->read_gp(num_rt);
+        immediate_val = dt.inst.immediate();
+    }
     const bool regwrite = flags & IMF_REGWRITE;
 
     CSR::Address csr_address = (flags & IMF_CSR) ? dt.inst.csr_address() : CSR::Address(0);
@@ -360,6 +408,9 @@ DecodeState Core::decode(const FetchInterstage &dt) {
                                 .val_rs_orig = val_rs,
                                 .val_rt = val_rt,
                                 .val_rt_orig = val_rt,
+                                .vector_rs1 = vs1,
+                                .vector_rs2 = vs2,
+                                .vector_rd = vd,
                                 .immediate_val = immediate_val,
                                 .csr_read_val = csr_read_val,
                                 .csr_address = csr_address,
@@ -375,6 +426,7 @@ DecodeState Core::decode(const FetchInterstage &dt) {
                                 .num_rd = num_rd,
                                 .memread = bool(flags & IMF_MEMREAD),
                                 .memwrite = bool(flags & IMF_MEMWRITE),
+                                .vector_inst = bool(flags & IMF_VECTOR),
                                 .alusrc = bool(flags & IMF_ALUSRC),
                                 .regwrite = regwrite,
                                 .alu_req_rs = bool(flags & IMF_ALU_REQ_RS),
@@ -409,7 +461,13 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
     }();
     const RegisterValue alu_val = [=] {
         if (excause != EXCAUSE_NONE) return RegisterValue(0);
-        return alu_combined_operate(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec);
+        return alu_combined_operate(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, nullptr, nullptr);
+    }();
+    const VectorRegister vector_val = [=] {
+        if (dt.inst.flags() & IMF_VECTOR_RD) {
+            return alu_combined_operate_vrd(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, dt.vector_rs1, dt.vector_rs2);
+        }
+        return VectorRegister();
     }();
     const Address branch_jal_target = dt.inst_addr + dt.immediate_val.as_i64();
 
@@ -443,6 +501,8 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
                  .branch_jal_target = branch_jal_target,
                  .val_rt = dt.val_rt,
                  .alu_val = alu_val,
+                 .vector_rt = dt.vector_rs2,
+                 .vector_val = vector_val,
                  .immediate_val = dt.immediate_val,
                  .csr_read_val = dt.csr_read_val,
                  .csr_address = dt.csr_address,
@@ -451,6 +511,7 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
                  .num_rd = dt.num_rd,
                  .memread = dt.memread,
                  .memwrite = dt.memwrite,
+                 .vector_inst = dt.vector_inst,
                  .regwrite = dt.regwrite,
                  .is_valid = dt.is_valid,
                  .branch_bxx = dt.branch_bxx,
@@ -466,17 +527,24 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
 
 MemoryState Core::memory(const ExecuteInterstage &dt) {
     RegisterValue towrite_val = dt.alu_val;
+    VectorRegister towrite_vector = dt.vector_val;
     auto mem_addr = Address(get_xlen_from_reg(dt.alu_val));
     bool memread = dt.memread;
     bool memwrite = dt.memwrite;
     bool regwrite = dt.regwrite;
+    bool vector_inst = dt.vector_inst;
     Address computed_next_inst_addr;
 
     enum ExceptionCause excause = dt.excause;
     if (excause == EXCAUSE_NONE) {
         if (is_special_access(dt.memctl)) {
-            excause = memory_special(
-                dt.memctl, dt.inst.rt(), memread, memwrite, towrite_val, dt.val_rt, mem_addr);
+            if (vector_inst) {
+                excause = memory_special(
+                    dt.memctl, dt.inst.rt(), memread, memwrite, towrite_vector, dt.vector_rt, mem_addr);
+            } else {
+                excause = memory_special(
+                    dt.memctl, dt.inst.rt(), memread, memwrite, towrite_val, dt.val_rt, mem_addr);
+            }
         } else if (is_regular_access(dt.memctl)) {
             if (memwrite) { mem_data->write_ctl(dt.memctl, mem_addr, dt.val_rt); }
             if (memread) { towrite_val = mem_data->read_ctl(dt.memctl, mem_addr); }
@@ -602,13 +670,14 @@ uint64_t Core::get_xlen_from_reg(RegisterValue reg) const {
 
 CoreSingle::CoreSingle(
     Registers *regs,
+    VectorRegisters *vregs,
     BranchPredictor *predictor,
     FrontendMemory *mem_program,
     FrontendMemory *mem_data,
     CSR::ControlState *control_state,
     Xlen xlen,
     ConfigIsaWord isa_word)
-    : Core(regs, predictor, mem_program, mem_data, control_state, xlen, isa_word) {
+    : Core(regs, vregs, predictor, mem_program, mem_data, control_state, xlen, isa_word) {
     reset();
 }
 
@@ -639,6 +708,7 @@ void CoreSingle::do_reset() {
 
 CorePipelined::CorePipelined(
     Registers *regs,
+    VectorRegisters *vregs,
     BranchPredictor *predictor,
     FrontendMemory *mem_program,
     FrontendMemory *mem_data,
@@ -646,7 +716,7 @@ CorePipelined::CorePipelined(
     Xlen xlen,
     ConfigIsaWord isa_word,
     MachineConfig::HazardUnit hazard_unit)
-    : Core(regs, predictor, mem_program, mem_data, control_state, xlen, isa_word) {
+    : Core(regs, vregs, predictor, mem_program, mem_data, control_state, xlen, isa_word) {
     this->hazard_unit = hazard_unit;
     reset();
 }

@@ -10,8 +10,6 @@
 
 namespace machine {
 
-constexpr size_t VECTOR_REGISTER_COUNT = 32;  // 32个向量寄存器
-
 class VectorRegisters : public QObject {
     Q_OBJECT
 public:
@@ -19,8 +17,9 @@ public:
     VectorRegisters(const VectorRegisters &);
 
     // 读写向量寄存器
-    VectorRegister& read_vr(RegisterId reg);
-    const VectorRegister& read_vr(RegisterId reg) const;
+    VectorRegister read_vr(RegisterId reg);
+    [[nodiscard]] const VectorRegister& read_vr(RegisterId reg) const;
+    VectorRegister* get_vr(RegisterId reg);
     void write_vr(RegisterId reg, const VectorRegister &value);
 
     // 获取/设置向量长度和类型

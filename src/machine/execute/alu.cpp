@@ -10,16 +10,39 @@ RegisterValue alu_combined_operate(
     bool w_operation,
     bool modified,
     RegisterValue a,
-    RegisterValue b) {
+    RegisterValue b,
+    VectorRegister* vr1,
+    VectorRegister* vr2) {
     switch (component) {
     case AluComponent::ALU:
         return (w_operation) ? alu32_operate(op.alu_op, modified, a, b)
                              : alu64_operate(op.alu_op, modified, a, b);
     case AluComponent::MUL:
         return (w_operation) ? mul32_operate(op.mul_op, a, b) : mul64_operate(op.mul_op, a, b);
+    case AluComponent::VECTOR:
+        return vector_operate(op.vector_op, vr2, vr1, a, b);
     case AluComponent::PASS:
         return a;
     default: qDebug("ERROR, unknown alu component: %hhx", uint8_t(component)); return 0;
+    }
+}
+
+VectorRegister alu_combined_operate_vrd(
+    AluCombinedOp op,
+    AluComponent component,
+    bool w_operation,
+    bool modified,
+    RegisterValue a,
+    RegisterValue b,
+    VectorRegister* vr1,
+    VectorRegister* vr2) {
+    switch (component) {
+    case AluComponent::VECTOR:
+        return vector_operate_vector(op.vector_op, vr2, vr1, a, b);
+    case AluComponent::PASS:
+        return {};
+    default: qDebug("ERROR, unknown alu component: %hhx", uint8_t(component));
+        return {};
     }
 }
 

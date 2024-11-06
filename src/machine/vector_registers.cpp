@@ -13,8 +13,8 @@ VectorRegisters::VectorRegisters(const VectorRegisters &orig) : QObject() {
     this->vtype = orig.vtype;
 }
 
-VectorRegister& VectorRegisters::read_vr(RegisterId reg) {
-    VectorRegister &value = this->vr.at(reg);
+VectorRegister VectorRegisters::read_vr(RegisterId reg) {
+    VectorRegister value = this->vr.at(reg);
     emit vr_read(reg, value);
     return value;
 }
@@ -23,6 +23,10 @@ const VectorRegister& VectorRegisters::read_vr(RegisterId reg) const {
     const VectorRegister &value = this->vr.at(reg);
     emit vr_read(reg, value);
     return value;
+}
+
+VectorRegister* VectorRegisters::get_vr(RegisterId reg) {
+    return &this->vr.at(reg);
 }
 
 void VectorRegisters::write_vr(RegisterId reg, const VectorRegister &value) {
@@ -43,7 +47,6 @@ bool VectorRegisters::operator!=(const VectorRegisters &c) const {
 void VectorRegisters::reset() {
     // 初始化所有向量寄存器为0
     for (auto &reg : vr) {
-        reg.resize(32 * 4);  // 默认32个32位元素
         for (size_t i = 0; i < reg.size(); i++) {
             reg.set_u32(i, 0);
         }

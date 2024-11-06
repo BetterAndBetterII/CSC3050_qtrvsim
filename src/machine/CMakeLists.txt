@@ -5,6 +5,7 @@ set(CMAKE_AUTOMOC ON)
 
 set(machine_SOURCES
 		execute/alu.cpp
+		execute/vector.cpp
 		csr/controlstate.cpp
 		core.cpp
 		instruction.cpp
@@ -25,12 +26,14 @@ set(machine_SOURCES
 		programloader.cpp
 		predictor.cpp
 		registers.cpp
+		vector_registers.cpp
 		simulator_exception.cpp
 		symboltable.cpp
 		)
 
 set(machine_HEADERS
 		execute/alu.h
+		execute/vector.h
 		csr/controlstate.h
 		core.h
 		core/core_state.h
@@ -68,6 +71,9 @@ set(machine_HEADERS
 		utils.h
 		execute/alu_op.h
 		execute/mul_op.h
+		execute/vector_op.h
+		vector_register.h
+		vector_registers.h
 		)
 
 # Object library is preferred, because the library archive is never really
@@ -87,6 +93,9 @@ if(NOT ${WASM})
 			execute/alu.test.h
 			execute/alu.cpp
 			execute/alu.h
+			execute/vector.cpp
+			execute/vector.h
+			execute/vector_op.h
 			)
 	target_link_libraries(alu_test
 			PRIVATE ${QtLib}::Core ${QtLib}::Test)

@@ -14,6 +14,7 @@
 #include "memory/memory_bus.h"
 #include "predictor.h"
 #include "registers.h"
+#include "vector_registers.h"
 #include "simulator_exception.h"
 #include "symboltable.h"
 

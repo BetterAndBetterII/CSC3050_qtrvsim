@@ -11,6 +11,7 @@ Machine::Machine(MachineConfig config, bool load_symtab, bool load_executable)
     : machine_config(std::move(config))
     , stat(ST_READY) {
     regs = new Registers();
+    VectorRegisters* vregs = new VectorRegisters();
 
     if (load_executable) {
         ProgramLoader program(machine_config.elf());
@@ -85,10 +86,10 @@ Machine::Machine(MachineConfig config, bool load_symtab, bool load_executable)
 
     if (machine_config.pipelined()) {
         cr = new CorePipelined(
-                    regs, predictor, cch_program, cch_data, controlst,
+                    regs, vregs, predictor, cch_program, cch_data, controlst,
                     machine_config.get_simulated_xlen(), machine_config.get_isa_word(), machine_config.hazard_unit());
     } else {
-        cr = new CoreSingle(regs, predictor, cch_program, cch_data, controlst,
+        cr = new CoreSingle(regs, vregs, predictor, cch_program, cch_data, controlst,
                             machine_config.get_simulated_xlen(), machine_config.get_isa_word());
     }
     connect(

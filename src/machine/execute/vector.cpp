@@ -45,6 +45,43 @@ void vector_operate(
     }
 }
 
+RegisterValue vector_operate(
+    VectorOp op,
+    const VectorRegister *vs2,
+    const VectorRegister *vs1,
+    RegisterValue rs1,
+    RegisterValue imm) {
+
+    switch(op) {
+    case VectorOp::VSETVL:
+        return vector_set_vl(rs1, imm);
+    case VectorOp::VMULV:
+        return vector_mul_vv(*vs2, *vs1);
+    default:
+        qDebug("ERROR: Unknown vector operation");
+        return {0};
+    }
+}
+
+VectorRegister vector_operate_vector(
+    VectorOp op,
+    const VectorRegister *vs2,
+    const VectorRegister *vs1,
+    RegisterValue rs1,
+    RegisterValue imm){
+    switch(op) {
+    case VectorOp::VADDV:
+        return vector_add_vv(*vs2, *vs1);
+    case VectorOp::VADDX:
+        return vector_add_vx(*vs2, rs1);
+    case VectorOp::VADDI:
+        return vector_add_vi(*vs2, imm);
+    default:
+        qDebug("ERROR: Unknown vector operation");
+        return {};
+    }
+}
+
 // 向量长度和类型的全局状态
 static struct {
     uint32_t vl;       // 向量长度寄存器
@@ -59,7 +96,7 @@ RegisterValue vector_set_vl(RegisterValue rs1, RegisterValue rs2) {
     vector_state.vtype = rs2.as_u32();
     
     // 返回实际设置的向量长度
-    return RegisterValue(vector_state.vl);
+    return {vector_state.vl};
 }
 
 // 向量-向量加法
@@ -77,6 +114,21 @@ void vector_add_vv(VectorRegister &vd,
     }
 }
 
+VectorRegister vector_add_vv(const VectorRegister &vs2,
+                            const VectorRegister &vs1) {
+    VectorRegister vd;
+    for(uint32_t i = 0; i < vector_state.vl; i++) {
+        switch(vector_state.vtype) {
+        case 32:
+            vd.set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
+            break;
+        default:
+            qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+        }
+    }
+    return vd;
+}
+
 // 向量-标量加法
 void vector_add_vx(VectorRegister &vd,
                   const VectorRegister &vs2, 
@@ -90,6 +142,21 @@ void vector_add_vx(VectorRegister &vd,
                 qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
         }
     }
+}
+
+VectorRegister vector_add_vx(const VectorRegister &vs2,
+                            RegisterValue rs1) {
+    VectorRegister vd;
+    for(uint32_t i = 0; i < vector_state.vl; i++) {
+        switch(vector_state.vtype) {
+            case 32:
+                vd.set_u32(i, vs2.get_u32(i) + rs1.as_u32());
+                break;
+            default:
+                qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+        }
+    }
+    return vd;
 }
 
 // 向量-立即数加法
@@ -107,11 +174,26 @@ void vector_add_vi(VectorRegister &vd,
     }
 }
 
+VectorRegister vector_add_vi(const VectorRegister &vs2,
+                             RegisterValue imm) {
+    VectorRegister vd;
+    for(uint32_t i = 0; i < vector_state.vl; i++) {
+        switch(vector_state.vtype) {
+            case 32:
+                vd.set_u32(i, vs2.get_u32(i) + static_cast<uint32_t>(imm));
+                break;
+            default:
+                qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+        }
+    }
+    return vd;
+}
+
 // 向量点乘
 void vector_mul_vv(VectorRegister &vd,
                   const VectorRegister &vs2,
                   const VectorRegister &vs1) {
-    RegisterValue result = RegisterValue(0);
+    auto result = RegisterValue(0);
     
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
@@ -126,6 +208,21 @@ void vector_mul_vv(VectorRegister &vd,
     
     // 将点乘结果存储在向量寄存器的第一个元素
     vd.set_u32(0, result.as_u32());
+}
+
+RegisterValue vector_mul_vv(const VectorRegister &vs2,
+                            const VectorRegister &vs1) {
+    auto result = RegisterValue(0);
+
+    for(uint32_t i = 0; i < vector_state.vl; i++) {
+        switch(vector_state.vtype) {
+            case 32:
+                result = RegisterValue(result.as_u32() + 
+                         vs2.get_u32(i) * vs1.get_u32(i));
+                break;
+        }
+    }
+    return result;
 }
 
 // 向量加载

@@ -13,6 +13,7 @@
 #include "register_value.h"
 #include "registers.h"
 #include "simulator_exception.h"
+#include "vector_registers.h"
 
 #include <QObject>
 
@@ -29,6 +30,7 @@ class Core : public QObject {
 public:
     Core(
         Registers *regs,
+        VectorRegisters *vregs,
         BranchPredictor *predictor,
         FrontendMemory *mem_program,
         FrontendMemory *mem_data,
@@ -42,13 +44,14 @@ public:
     unsigned get_cycle_count() const;
     unsigned get_stall_count() const;
 
-    Registers *get_regs() const;
-    CSR::ControlState *get_control_state() const;
-    BranchPredictor *get_predictor() const;
-    FrontendMemory *get_mem_data() const;
-    FrontendMemory *get_mem_program() const;
-    const CoreState &get_state() const;
-    Xlen get_xlen() const;
+    [[nodiscard]] Registers *get_regs() const;
+    [[nodiscard]] VectorRegisters *get_vregs() const;
+    [[nodiscard]] CSR::ControlState *get_control_state() const;
+    [[nodiscard]] BranchPredictor *get_predictor() const;
+    [[nodiscard]] FrontendMemory *get_mem_data() const;
+    [[nodiscard]] FrontendMemory *get_mem_program() const;
+    [[nodiscard]] const CoreState &get_state() const;
+    [[nodiscard]] Xlen get_xlen() const;
 
     void insert_hwbreak(Address address);
     void remove_hwbreak(Address address);
@@ -111,6 +114,7 @@ protected:
     const InstructionFlags check_inst_flags_val;
     const InstructionFlags check_inst_flags_mask;
     BORROWED Registers *const regs;
+    BORROWED VectorRegisters *const vregs;
     BORROWED CSR::ControlState *const control_state;
     BORROWED BranchPredictor *const predictor;
     BORROWED FrontendMemory *const mem_data, *const mem_program;
@@ -141,12 +145,22 @@ protected:
         RegisterValue &towrite_val,
         RegisterValue rt_value,
         Address mem_addr);
+
+    enum ExceptionCause memory_special(
+        enum AccessControl memctl,
+        int mode,
+        bool memread,
+        bool memwrite,
+        VectorRegister &towrite_val,
+        VectorRegister* rt_value,
+        Address mem_addr);
 };
 
 class CoreSingle : public Core {
 public:
     CoreSingle(
         Registers *regs,
+        VectorRegisters *vregs,
         BranchPredictor *predictor,
         FrontendMemory *mem_program,
         FrontendMemory *mem_data,
@@ -166,6 +180,7 @@ class CorePipelined : public Core {
 public:
     CorePipelined(
         Registers *regs,
+        VectorRegisters *vregs,
         BranchPredictor *predictor,
         FrontendMemory *mem_program,
         FrontendMemory *mem_data,

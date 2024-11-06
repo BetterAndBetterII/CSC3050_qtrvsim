@@ -85,6 +85,9 @@ struct DecodeInterstage {
     RegisterValue val_rs_orig = 0;   // Value from register rs1 without forwarding
     RegisterValue val_rt = 0;        // Value from register rt
     RegisterValue val_rt_orig = 0;   // Value from register rs1 without forwarding
+    VectorRegister* vector_rs1 = nullptr;
+    VectorRegister* vector_rs2 = nullptr;
+    VectorRegister* vector_rd = nullptr;
     RegisterValue immediate_val = 0; // Sign-extended immediate value
                                      // rd according to regd)
     RegisterValue csr_read_val = 0;  // Value read from csr
@@ -100,6 +103,7 @@ struct DecodeInterstage {
     RegisterId num_rd = 0;                          // Number of the register d
     bool memread = false;                           // If memory should be read
     bool memwrite = false;                          // If memory should write input
+    bool vector_inst = false;                       // If instruction is vector instruction
     bool alusrc = false;      // If second value to alu is immediate value (rt used otherwise)
     bool regwrite = false;    // If output should be written back to register
     bool alu_req_rs = false;  // requires rs value for ALU
@@ -161,6 +165,8 @@ struct ExecuteInterstage {
     Address branch_jal_target = 0_addr; //> Potential branch target (inst_addr + 4 + imm).
     RegisterValue val_rt = 0;
     RegisterValue alu_val = 0; // Result of ALU execution
+    VectorRegister* vector_rt = nullptr;
+    VectorRegister vector_val = VectorRegister();
     RegisterValue immediate_val = 0;
     RegisterValue csr_read_val = 0;
     CSR::Address csr_address = CSR::Address(0);
@@ -169,6 +175,7 @@ struct ExecuteInterstage {
     RegisterId num_rd = 0;
     bool memread = false;
     bool memwrite = false;
+    bool vector_inst = false;
     bool regwrite = false;
     bool is_valid = false;
     bool branch_bxx = false;
@@ -258,6 +265,7 @@ struct MemoryInternalState {
     unsigned excause_num = 0;
     bool memwrite = false;
     bool memread = false;
+    bool vector_inst = false;
     bool branch_bxx = false;
     bool branch_jal = false;
     bool branch_outcome = false;

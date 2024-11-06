@@ -49,7 +49,6 @@ enum InstructionFlags : unsigned {
     IMF_ECALL = 1L << 16,       // seems easiest to encode ecall and ebreak as flags, but they might
     IMF_EBREAK = 1L << 17,      // be moved elsewhere in case we run out of InstructionFlag space.
     IMF_XRET = 1L << 18,        /**< Return from exception, MRET and SRET  */
-    IMF_VECTOR = 1L << 19,      /**< Vector instruction */
 
     // Extensions:
     // =============================================================================================
@@ -61,9 +60,11 @@ enum InstructionFlags : unsigned {
     IMF_ALU_RS_ID = 1L << 22,
     // RV64/32A - Atomic Memory Operations
     IMF_AMO = 1L << 23,        /**< Instruction is AMO */
+    IMF_VECTOR = 1L << 24,     /**< Instruction is vector */
+    IMF_VECTOR_RD = 1L << 25, /**< Vector instruction has rs1 */
     // TODO do we want to add those signals to the visualization?
 
-    IMF_RV64 = 1L << 24, /**< Mark instructions which are available in 64-bit mode only. */
+    IMF_RV64 = 1L << 25, /**< Mark instructions which are available in 64-bit mode only. */
 };
 
 /**

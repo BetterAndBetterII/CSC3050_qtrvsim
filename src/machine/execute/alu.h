@@ -16,6 +16,7 @@ namespace machine {
 enum class AluComponent {
     ALU, //> RV32/64I
     MUL, //> RV32/64M
+    VECTOR, //> RV32/64V
     PASS, //> Pass operand A without change (used for AMO)
 };
 
@@ -42,7 +43,19 @@ union AluCombinedOp {
     bool w_operation,
     bool modified,
     RegisterValue a,
-    RegisterValue b);
+    RegisterValue b,
+    VectorRegister* vr1,
+    VectorRegister* vr2);
+
+[[gnu::const]] VectorRegister alu_combined_operate_vrd(
+    AluCombinedOp op,
+    AluComponent component,
+    bool w_operation,
+    bool modified,
+    RegisterValue a,
+    RegisterValue b,
+    VectorRegister* vr1,
+    VectorRegister* vr2);
 
 /**
  * RV64I for OP and OP-IMM instructions
