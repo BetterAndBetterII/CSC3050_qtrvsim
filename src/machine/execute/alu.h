@@ -44,18 +44,10 @@ union AluCombinedOp {
     bool modified,
     RegisterValue a,
     RegisterValue b,
+    VectorRegister* vd,
     VectorRegister* vr1,
-    VectorRegister* vr2);
-
-[[gnu::const]] VectorRegister alu_combined_operate_vrd(
-    AluCombinedOp op,
-    AluComponent component,
-    bool w_operation,
-    bool modified,
-    RegisterValue a,
-    RegisterValue b,
-    VectorRegister* vr1,
-    VectorRegister* vr2);
+    VectorRegister* vr2,
+    Address *base_addr);
 
 /**
  * RV64I for OP and OP-IMM instructions

@@ -47,9 +47,9 @@ signals:
     void vtype_update(uint32_t new_vtype);
 
 private:
-    std::array<VectorRegister, VECTOR_REGISTER_COUNT> vr;  // 向量寄存器组
-    uint32_t vl;     // 向量长度寄存器
-    uint32_t vtype;  // 向量类型寄存器
+    std::vector<VectorRegister> vr = std::vector<VectorRegister>(32, VectorRegister(32));
+    uint32_t vl = 0;     // 向量长度寄存器
+    uint32_t vtype = 32;  // 向量类型寄存器
 };
 
 } // namespace machine

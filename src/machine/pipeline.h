@@ -165,8 +165,7 @@ struct ExecuteInterstage {
     Address branch_jal_target = 0_addr; //> Potential branch target (inst_addr + 4 + imm).
     RegisterValue val_rt = 0;
     RegisterValue alu_val = 0; // Result of ALU execution
-    VectorRegister* vector_rt = nullptr;
-    VectorRegister vector_val = VectorRegister();
+    VectorRegister* vector_val = nullptr;
     RegisterValue immediate_val = 0;
     RegisterValue csr_read_val = 0;
     CSR::Address csr_address = CSR::Address(0);

@@ -4,6 +4,8 @@
 namespace machine {
 
 VectorRegisters::VectorRegisters() : QObject() {
+    this->vl = 0;
+    this->vtype = 32;
     reset();
 }
 
@@ -51,10 +53,6 @@ void VectorRegisters::reset() {
             reg.set_u32(i, 0);
         }
     }
-    
-    // 初始化向量控制寄存器
-    vl = 0;
-    vtype = 32;  // 默认32位元素
 }
 
 } // namespace machine

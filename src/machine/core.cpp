@@ -450,6 +450,7 @@ DecodeState Core::decode(const FetchInterstage &dt) {
 ExecuteState Core::execute(const DecodeInterstage &dt) {
     enum ExceptionCause excause = dt.excause;
     // TODO refactor to produce multiplexor index and multiplex function
+    VectorRegister *vector_rs2 = dt.vector_rs2;
     const RegisterValue alu_fst = [=] {
         if (dt.alu_pc) return RegisterValue(dt.inst_addr.get_raw());
         return dt.val_rs;
@@ -461,13 +462,21 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
     }();
     const RegisterValue alu_val = [=] {
         if (excause != EXCAUSE_NONE) return RegisterValue(0);
-        return alu_combined_operate(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, nullptr, nullptr);
-    }();
-    const VectorRegister vector_val = [=] {
-        if (dt.inst.flags() & IMF_VECTOR_RD) {
-            return alu_combined_operate_vrd(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, dt.vector_rs1, dt.vector_rs2);
+        if (dt.inst.flags() & IMF_VECTOR) {
+            return alu_combined_operate(
+                dt.aluop,
+                dt.alu_component,
+                dt.w_operation,
+                dt.alu_mod,
+                alu_fst,
+                alu_sec,
+                dt.vector_rd,
+                dt.vector_rs1,
+                dt.vector_rs2,
+                nullptr
+            );
         }
-        return VectorRegister();
+        return alu_combined_operate(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, nullptr, nullptr, nullptr, nullptr);
     }();
     const Address branch_jal_target = dt.inst_addr + dt.immediate_val.as_i64();
 
@@ -501,8 +510,7 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
                  .branch_jal_target = branch_jal_target,
                  .val_rt = dt.val_rt,
                  .alu_val = alu_val,
-                 .vector_rt = dt.vector_rs2,
-                 .vector_val = vector_val,
+                 .vector_val = vector_rs2,
                  .immediate_val = dt.immediate_val,
                  .csr_read_val = dt.csr_read_val,
                  .csr_address = dt.csr_address,
@@ -527,7 +535,7 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
 
 MemoryState Core::memory(const ExecuteInterstage &dt) {
     RegisterValue towrite_val = dt.alu_val;
-    VectorRegister towrite_vector = dt.vector_val;
+    VectorRegister* towrite_vector = dt.vector_val;
     auto mem_addr = Address(get_xlen_from_reg(dt.alu_val));
     bool memread = dt.memread;
     bool memwrite = dt.memwrite;
@@ -539,8 +547,15 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
     if (excause == EXCAUSE_NONE) {
         if (is_special_access(dt.memctl)) {
             if (vector_inst) {
-                excause = memory_special(
-                    dt.memctl, dt.inst.rt(), memread, memwrite, towrite_vector, dt.vector_rt, mem_addr);
+                if (memwrite) vector_operate_vector(
+                        VectorOp::VS,
+                        nullptr,
+                        towrite_vector,
+                        nullptr,
+                        RegisterValue(0),
+                        RegisterValue(0),
+                        &mem_addr
+                    );
             } else {
                 excause = memory_special(
                     dt.memctl, dt.inst.rt(), memread, memwrite, towrite_val, dt.val_rt, mem_addr);

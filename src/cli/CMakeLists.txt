@@ -58,6 +58,14 @@ add_cli_test(
 )
 
 add_cli_test(
+        NAME vector
+        ARGS
+        --asm "${CMAKE_SOURCE_DIR}/tests/cli/vector/program.S"
+        --dump-registers
+        EXPECTED_OUTPUT "tests/cli/vector/stdout.txt"
+)
+
+add_cli_test(
         NAME asm_error
         ARGS
         --asm "${CMAKE_SOURCE_DIR}/tests/cli/asm-error/program.S"

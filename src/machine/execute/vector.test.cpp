@@ -1,6 +1,7 @@
 #include "vector.h"
 
 #include "vector.test.h"
+#include "vector_registers.h"
 
 #include <iostream>
 
@@ -28,9 +29,9 @@ void VectorTest::test_vector_add() {
     QFETCH(QVector<uint32_t>, expected);
 
     // 创建向量寄存器并初始化
-    VectorRegister vs2(vs2_data.size() * 4);
-    VectorRegister vs1(vs1_data.size() * 4);
-    VectorRegister vd(expected.size() * 4);
+    VectorRegister vs2(vs2_data.size());
+    VectorRegister vs1(vs1_data.size());
+    VectorRegister vd(expected.size());
     
     // 设置测试数据
     for(int i = 0; i < vs2_data.size(); i++) {
@@ -39,7 +40,7 @@ void VectorTest::test_vector_add() {
     }
 
     // 执行向量加法
-    vector_operate(VectorOp::VADDV, vd, &vs2, &vs1);
+    vector_operate_vector(VectorOp::VADDV, &vd, &vs2, &vs1, RegisterValue(0), RegisterValue(0), nullptr);
 
     // 验证结果
     for(int i = 0; i < expected.size(); i++) {
@@ -73,40 +74,44 @@ void VectorTest::test_vector_mul() {
         vs1.set_u32(i, vs1_data[i]);
     }
 
-    vector_operate(VectorOp::VMULV, vd, &vs2, &vs1);
-    QCOMPARE(vd.get_u32(0), expected_result);
+    RegisterValue res = vector_operate_vector(VectorOp::VMULV, &vd, &vs2, &vs1, RegisterValue(0), RegisterValue(0), nullptr);
+    QCOMPARE(res, expected_result);
 }
 
 void VectorTest::test_vector_load_store() {
-    const uint32_t base_addr = 0x1000;
+    const Address base_addr(0x2000);
     const QVector<uint32_t> test_data{1, 2, 3, 4};
     
     // 创建内存和向量寄存器
     std::vector<uint8_t> memory(0x2000, 0);
-    VectorRegister vd(test_data.size() * 4);
+    VectorRegisters vregs = VectorRegisters();
+    VectorRegister* vd = vregs.get_vr(RegisterId(0));
     
     // 设置向量类型和长度
     uint32_t size = test_data.size();
     vector_set_vl(RegisterValue(size), RegisterValue(32));
     
-    // 测试存储
+    // 设置向量数据
     for(uint32_t i = 0; i < test_data.size(); i++) {
-        vd.set_u32(i, test_data[i]);
+        vd->set_u32(i, test_data[i]);
     }
-    vector_operate(VectorOp::VS, vd, nullptr, nullptr, RegisterValue(0), 0,
-                  memory.data(), base_addr);
+    
+    // 执行向量存储
+    vector_operate_vector(VectorOp::VS, nullptr, vd, nullptr, RegisterValue(0), RegisterValue(0), &base_addr);
 
     // 验证内存内容
     for(uint32_t i = 0; i < test_data.size(); i++) {
-        uint32_t stored_value = *reinterpret_cast<uint32_t*>(&memory[base_addr + i * 4]);
+        // 使用Address的+运算符来计算偏移
+        Address curr_addr = base_addr + (i * 4);
+        uint32_t stored_value = *reinterpret_cast<uint32_t*>(&memory[curr_addr.get_raw()]);
         QCOMPARE(stored_value, test_data[i]);
     }
 
     // 测试加载
     VectorRegister vd2(test_data.size() * 4);
-    vector_operate(VectorOp::VL, vd2, nullptr, nullptr, RegisterValue(0), 0,
-                  memory.data(), base_addr);
+    vector_operate_vector(VectorOp::VL, &vd2, nullptr, nullptr, RegisterValue(0), RegisterValue(0), &base_addr);
     
+    // 验证加载的数据
     for(uint32_t i = 0; i < test_data.size(); i++) {
         QCOMPARE(vd2.get_u32(i), test_data[i]);
     }
@@ -136,7 +141,7 @@ void VectorTest::test_vector_add_imm() {
         vs2.set_u32(i, vs2_data[i]);
     }
 
-    vector_operate(VectorOp::VADDI, vd, &vs2, nullptr, RegisterValue(0), imm);
+    vector_operate_vector(VectorOp::VADDI, &vd, &vs2, nullptr, RegisterValue(0), RegisterValue(imm), nullptr);
 
     for(int i = 0; i < expected.size(); i++) {
         QCOMPARE(vd.get_u32(i), expected[i]);
@@ -171,7 +176,7 @@ void VectorTest::test_vector_add_register() {
         vs2.set_u32(i, vs2_data[i]);
     }
 
-    vector_operate(VectorOp::VADDX, vd, &vs2, nullptr, RegisterValue(rs1_data));
+    vector_operate_vector(VectorOp::VADDX, &vd, &vs2, nullptr, RegisterValue(rs1_data), RegisterValue(0), nullptr);
 
     for(int i = 0; i < expected.size(); i++) {
         QCOMPARE(vd.get_u32(i), expected[i]);

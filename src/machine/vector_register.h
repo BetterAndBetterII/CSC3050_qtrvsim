@@ -21,11 +21,19 @@ public:
     inline VectorRegister() : data(VECTOR_REGISTER_COUNT) {}
 
     [[nodiscard]] inline uint32_t get_u32(uint32_t index) const {
-        return *reinterpret_cast<const uint32_t*>(&data[index * 4]);
+        return *reinterpret_cast<const uint32_t*>(&data[index]);
     }
 
-    inline void set_u32(uint32_t index, uint32_t value) {
-        *reinterpret_cast<uint32_t*>(&data[index * 4]) = value;
+    inline void set_u32(const uint32_t index, const uint32_t value) {
+        *reinterpret_cast<uint32_t*>(&data[index]) = value;
+    }
+
+    inline void set_u32_vector(const std::vector<uint32_t>& vec) {
+        data = vec;
+    }
+
+    [[nodiscard]] inline uint16_t get_u16(uint32_t index) const {
+        return *reinterpret_cast<const uint16_t*>(&data[index]);
     }
 
     // 获取向量大小

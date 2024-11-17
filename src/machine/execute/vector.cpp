@@ -2,7 +2,9 @@
 // Created by Gary on 24-11-4.
 //
 #include "vector.h"
+
 #include "common/logging.h"
+
 #include <QDebug>
 
 namespace machine {
@@ -23,64 +25,79 @@ void vector_operate(
         vector_set_vl(rs1, RegisterValue(imm));
         break;
     case VectorOp::VADDV:
-        vector_add_vv(vd, *vs2, *vs1);
+        vector_add_vv(&vd, *vs2, *vs1);
         break; 
     case VectorOp::VADDX:
-        vector_add_vx(vd, *vs2, rs1);
+        vector_add_vx(&vd, *vs2, rs1);
         break;
     case VectorOp::VADDI:
-        vector_add_vi(vd, *vs2, imm);
+        vector_add_vi(&vd, *vs2, imm);
         break;
-    case VectorOp::VMULV:
-        vector_mul_vv(vd, *vs2, *vs1);
-        break;
-    case VectorOp::VL:
-        vector_load(vd, memory, addr);
-        break;
-    case VectorOp::VS:
-        vector_store(vd, memory, addr);
-        break;
+//    case VectorOp::VMULV:
+//        vector_mul_vv(vd, *vs2, *vs1);
+//        break;
+//    case VectorOp::VL:
+//        vector_load(vd, memory, addr);
+//        break;
+//    case VectorOp::VS:
+//        vector_store(vd, memory, addr);
+//        break;
     default:
         qDebug("ERROR: Unknown vector operation");
     }
 }
 
-RegisterValue vector_operate(
+RegisterValue vector_operate_vector(
     VectorOp op,
+    VectorRegister *vd,
     const VectorRegister *vs2,
     const VectorRegister *vs1,
     RegisterValue rs1,
-    RegisterValue imm) {
+    RegisterValue imm,
+    const Address* base_addr) {
 
     switch(op) {
     case VectorOp::VSETVL:
         return vector_set_vl(rs1, imm);
     case VectorOp::VMULV:
         return vector_mul_vv(*vs2, *vs1);
+    case VectorOp::VADDV:
+        return vector_add_vv(vd, *vs2, *vs1);
+    case VectorOp::VADDX:
+        return vector_add_vx(vd, *vs2, rs1);
+    case VectorOp::VADDI:
+        return vector_add_vi(vd, *vs2, imm);
+    case VectorOp::VL:
+        vector_load(vd, base_addr);
+        return {0};
+    case VectorOp::VS:
+        vector_store(*vs2, base_addr);
+        return {0};
     default:
         qDebug("ERROR: Unknown vector operation");
         return {0};
     }
 }
 
-VectorRegister vector_operate_vector(
-    VectorOp op,
-    const VectorRegister *vs2,
-    const VectorRegister *vs1,
-    RegisterValue rs1,
-    RegisterValue imm){
-    switch(op) {
-    case VectorOp::VADDV:
-        return vector_add_vv(*vs2, *vs1);
-    case VectorOp::VADDX:
-        return vector_add_vx(*vs2, rs1);
-    case VectorOp::VADDI:
-        return vector_add_vi(*vs2, imm);
-    default:
-        qDebug("ERROR: Unknown vector operation");
-        return {};
-    }
-}
+//VectorRegister vector_operate_vector(
+//    VectorOp op,
+//    const VectorRegister *vd,
+//    const VectorRegister *vs2,
+//    const VectorRegister *vs1,
+//    RegisterValue rs1,
+//    RegisterValue imm){
+//    switch(op) {
+//    case VectorOp::VADDV:
+//        return vector_add_vv(*vd, *vs2, *vs1);
+//    case VectorOp::VADDX:
+//        return vector_add_vx(vd, *vs2, rs1);
+//    case VectorOp::VADDI:
+//        return vector_add_vi(vd, *vs2, imm);
+//    default:
+//        qDebug("ERROR: Unknown vector operation");
+//        return {};
+//    }
+//}
 
 // 向量长度和类型的全局状态
 static struct {
@@ -100,114 +117,66 @@ RegisterValue vector_set_vl(RegisterValue rs1, RegisterValue rs2) {
 }
 
 // 向量-向量加法
-void vector_add_vv(VectorRegister &vd, 
+RegisterValue vector_add_vv(VectorRegister *vd,
                   const VectorRegister &vs2,
                   const VectorRegister &vs1) {
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
-                vd.set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
+                vd->set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
                 break;
             default:
                 qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
         }
     }
+    return {0};
 }
 
-VectorRegister vector_add_vv(const VectorRegister &vs2,
-                            const VectorRegister &vs1) {
-    VectorRegister vd;
-    for(uint32_t i = 0; i < vector_state.vl; i++) {
-        switch(vector_state.vtype) {
-        case 32:
-            vd.set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
-            break;
-        default:
-            qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
-        }
-    }
-    return vd;
-}
+//VectorRegister vector_add_vv(const VectorRegister &vs2,
+//                            const VectorRegister &vs1) {
+//    VectorRegister vd;
+//    for(uint32_t i = 0; i < vector_state.vl; i++) {
+//        switch(vector_state.vtype) {
+//        case 32:
+//            vd.set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
+//            break;
+//        default:
+//            qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+//        }
+//    }
+//    return vd;
+//}
 
 // 向量-标量加法
-void vector_add_vx(VectorRegister &vd,
+RegisterValue vector_add_vx(VectorRegister *vd,
                   const VectorRegister &vs2, 
                   RegisterValue rs1) {
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
-                vd.set_u32(i, vs2.get_u32(i) + rs1.as_u32());
+                vd->set_u32(i, vs2.get_u32(i) + rs1.as_u32());
                 break;
             default:
                 qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
         }
     }
-}
-
-VectorRegister vector_add_vx(const VectorRegister &vs2,
-                            RegisterValue rs1) {
-    VectorRegister vd;
-    for(uint32_t i = 0; i < vector_state.vl; i++) {
-        switch(vector_state.vtype) {
-            case 32:
-                vd.set_u32(i, vs2.get_u32(i) + rs1.as_u32());
-                break;
-            default:
-                qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
-        }
-    }
-    return vd;
+    return {0};
 }
 
 // 向量-立即数加法
-void vector_add_vi(VectorRegister &vd,
+RegisterValue vector_add_vi(VectorRegister *vd,
                   const VectorRegister &vs2,
-                  int32_t imm) {
+                  RegisterValue imm) {
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
-                vd.set_u32(i, vs2.get_u32(i) + static_cast<uint32_t>(imm));
+                vd->set_u32(i, vs2.get_u32(i) + static_cast<uint32_t>(imm));
                 break;
             default:
                 qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
         }
     }
-}
-
-VectorRegister vector_add_vi(const VectorRegister &vs2,
-                             RegisterValue imm) {
-    VectorRegister vd;
-    for(uint32_t i = 0; i < vector_state.vl; i++) {
-        switch(vector_state.vtype) {
-            case 32:
-                vd.set_u32(i, vs2.get_u32(i) + static_cast<uint32_t>(imm));
-                break;
-            default:
-                qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
-        }
-    }
-    return vd;
-}
-
-// 向量点乘
-void vector_mul_vv(VectorRegister &vd,
-                  const VectorRegister &vs2,
-                  const VectorRegister &vs1) {
-    auto result = RegisterValue(0);
-    
-    for(uint32_t i = 0; i < vector_state.vl; i++) {
-        switch(vector_state.vtype) {
-            case 32:
-                result = RegisterValue(result.as_u32() + 
-                         vs2.get_u32(i) * vs1.get_u32(i));
-                break;
-            default:
-                qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
-        }
-    }
-    
-    // 将点乘结果存储在向量寄存器的第一个元素
-    vd.set_u32(0, result.as_u32());
+    return {0};
 }
 
 RegisterValue vector_mul_vv(const VectorRegister &vs2,
@@ -226,16 +195,16 @@ RegisterValue vector_mul_vv(const VectorRegister &vs2,
 }
 
 // 向量加载
-void vector_load(VectorRegister &vd,
-                const uint8_t *memory,
-                uint32_t base_addr) {
+void vector_load(VectorRegister *vd,
+                 const uint8_t *memory,
+                 uint32_t base_addr) {
     uint32_t offset = 0;
     
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
-                vd.set_u32(i, *reinterpret_cast<const uint32_t*>(
-                    memory + base_addr + offset));
+                vd->set_u32(i, *reinterpret_cast<const uint32_t*>(
+                                  memory + base_addr + offset));
                 offset += 4;
                 break;
             default:
@@ -244,10 +213,26 @@ void vector_load(VectorRegister &vd,
     }
 }
 
+void vector_load(VectorRegister *vd,
+                 const Address *memory) {
+    uint32_t offset = 0;
+
+    for(uint32_t i = 0; i < vector_state.vl; i++) {
+        switch(vector_state.vtype) {
+        case 32:
+            vd->set_u32(i, *reinterpret_cast<const uint32_t*>(memory->get_raw()));
+            offset += 4;
+            break;
+        default:
+            qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+        }
+    }
+}
+
 // 向量存储
 void vector_store(const VectorRegister &vs3,
-                 uint8_t *memory,
-                 uint32_t base_addr) {
+                  uint8_t *memory,
+                  uint32_t base_addr) {
     uint32_t offset = 0;
     
     for(uint32_t i = 0; i < vector_state.vl; i++) {
@@ -259,6 +244,21 @@ void vector_store(const VectorRegister &vs3,
                 break;
             default:
                 qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+        }
+    }
+}
+
+void vector_store(const VectorRegister &vs3,
+                  const Address *memory) {
+    for(uint32_t i = 0; i < vector_state.vl; i++) {
+        switch(vector_state.vtype) {
+        case 32:
+            *reinterpret_cast<uint32_t*>(
+                reinterpret_cast<uint8_t*>(memory->get_raw()) + (i * 4))
+                = vs3.get_u32(i);
+            break;
+        default:
+            qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
         }
     }
 }
