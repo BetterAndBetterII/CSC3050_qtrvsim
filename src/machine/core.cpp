@@ -366,16 +366,17 @@ DecodeState Core::decode(const FetchInterstage &dt) {
     if (flags & IMF_VECTOR) {
         // Read Vector Registers
         vs1 = vregs->get_vr(num_rs);
+        DEBUG("Get vector register1, vs1[0] = %d", vs1->get_u32(0));
         vs2 = vregs->get_vr(num_rt);
+        DEBUG("Get vector register2, vs2[0] = %d", vs2->get_u32(0));
         // Write Vector Register
         vd = vregs->get_vr(num_rd);
-    } else {
-        // When instruction does not specify register, it is set to x0 as operations on x0 have no
-        // side effects (not even visualization).
-        val_rs = (flags & IMF_ALU_RS_ID) ? uint64_t(size_t(num_rs)) : regs->read_gp(num_rs);
-        val_rt = regs->read_gp(num_rt);
-        immediate_val = dt.inst.immediate();
     }
+    // When instruction does not specify register, it is set to x0 as operations on x0 have no
+    // side effects (not even visualization).
+    val_rs = (flags & IMF_ALU_RS_ID) ? uint64_t(size_t(num_rs)) : regs->read_gp(num_rs);
+    val_rt = regs->read_gp(num_rt);
+    immediate_val = dt.inst.immediate();
     const bool regwrite = flags & IMF_REGWRITE;
 
     CSR::Address csr_address = (flags & IMF_CSR) ? dt.inst.csr_address() : CSR::Address(0);
@@ -448,6 +449,7 @@ DecodeState Core::decode(const FetchInterstage &dt) {
 }
 
 ExecuteState Core::execute(const DecodeInterstage &dt) {
+    DEBUG("Execute: %s", dt.inst.to_str().toStdString().c_str());
     enum ExceptionCause excause = dt.excause;
     // TODO refactor to produce multiplexor index and multiplex function
     VectorRegister *vector_rs2 = dt.vector_rs2;
@@ -462,19 +464,11 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
     }();
     const RegisterValue alu_val = [=] {
         if (excause != EXCAUSE_NONE) return RegisterValue(0);
-        if (dt.inst.flags() & IMF_VECTOR) {
-            return alu_combined_operate(
-                dt.aluop,
-                dt.alu_component,
-                dt.w_operation,
-                dt.alu_mod,
-                alu_fst,
-                alu_sec,
-                dt.vector_rd,
-                dt.vector_rs1,
-                dt.vector_rs2,
-                nullptr
-            );
+        if (dt.inst.flags() & IMF_VECTOR && !(dt.inst.flags() & IMF_MEM)) {
+            return vector_operate_vector(
+                    dt.aluop.vector_op, dt.vector_rd, dt.vector_rs1, dt.vector_rs2, alu_fst,
+                    alu_sec, nullptr
+                    );
         }
         return alu_combined_operate(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, nullptr, nullptr, nullptr, nullptr);
     }();
@@ -544,23 +538,31 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
     Address computed_next_inst_addr;
 
     enum ExceptionCause excause = dt.excause;
+    if (dt.inst.flags() & IMF_VSETVL) {
+        vregs->set_vl(towrite_val.as_u32());
+        vregs->set_vtype(static_cast<uint32_t>(dt.val_rt));
+    }
     if (excause == EXCAUSE_NONE) {
         if (is_special_access(dt.memctl)) {
             if (vector_inst) {
-                if (memwrite) vector_operate_vector(
-                        VectorOp::VS,
-                        nullptr,
-                        towrite_vector,
-                        nullptr,
-                        RegisterValue(0),
-                        RegisterValue(0),
-                        &mem_addr
-                    );
+                if (memwrite) {
+                    for (int i = 0; i < vregs->get_vl(); i++) {
+                        DEBUG("Writing %d at %d", towrite_vector->get_u32(i), static_cast<uint32_t>((mem_addr + vregs->get_vtype() * i).get_raw()));
+                        mem_data->write_u32(mem_addr + vregs->get_vtype() * i, towrite_vector->get_u32(i));
+                    }
+                }
+                else if (memread) {
+                    for (int i = 0; i < vregs->get_vl(); i++) {
+                        DEBUG("Reading %d at %d", mem_data->read_u32(mem_addr + vregs->get_vtype() * i), static_cast<uint32_t>((mem_addr + vregs->get_vtype() * i).get_raw()));
+                        towrite_vector->set_u32(i, mem_data->read_u32(mem_addr + vregs->get_vtype() * i));
+                    }
+                }
             } else {
                 excause = memory_special(
                     dt.memctl, dt.inst.rt(), memread, memwrite, towrite_val, dt.val_rt, mem_addr);
             }
         } else if (is_regular_access(dt.memctl)) {
+            if (memwrite) DEBUG("Writing %d at %d", dt.val_rt.as_u32(), static_cast<uint32_t>(mem_addr.get_raw()));
             if (memwrite) { mem_data->write_ctl(dt.memctl, mem_addr, dt.val_rt); }
             if (memread) { towrite_val = mem_data->read_ctl(dt.memctl, mem_addr); }
         } else {
@@ -647,6 +649,7 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
                      if (dt.branch_jalr || dt.branch_jal) return dt.next_inst_addr.get_raw();
                      return towrite_val;
                  }(),
+                 .towrite_vector = towrite_vector,
                  .excause = dt.excause,
                  .num_rd = dt.num_rd,
                  .memtoreg = memread,
@@ -657,7 +660,16 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
 }
 
 WritebackState Core::writeback(const MemoryInterstage &dt) {
-    if (dt.regwrite) { regs->write_gp(dt.num_rd, dt.towrite_val); }
+    if (dt.regwrite) {
+        if (dt.inst.flags() & IMF_VECTOR_RD) {
+            DEBUG("Writing back vector register %d, vrd[0] = %d ", static_cast<int>(dt.num_rd), dt.towrite_vector->get_u32(0));
+            vregs->write_vr(dt.num_rd, *dt.towrite_vector);
+        }
+        else {
+            DEBUG("Writing back %d to register %d", dt.towrite_val.as_u32(), static_cast<int>(dt.num_rd));
+            regs->write_gp(dt.num_rd, dt.towrite_val);
+        }
+    }
 
     return WritebackState { WritebackInternalState {
         .inst = (dt.excause == EXCAUSE_NONE)? dt.inst: Instruction::NOP,

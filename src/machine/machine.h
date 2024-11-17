@@ -34,6 +34,7 @@ public:
     void set_speed(unsigned int ips, unsigned int time_chunk = 0);
 
     const Registers *registers();
+    VectorRegisters *vregs;
     const CSR::ControlState *control_state();
     const Memory *memory();
     Memory *memory_rw();

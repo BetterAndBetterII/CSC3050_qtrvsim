@@ -40,16 +40,16 @@ loop3:
 	vsetvl x5, x7, x4
 resetvi:
 
-        vlw.v v1, 0x623(x16)
-        vlw.v v2, 0x423(x16)
+        vlw.v v1, 0x623(x8)
+        vlw.v v2, 0x423(x8)
 		vmul.vv v3, v1, v2
 		vadd.vv v4, v3, v1
 
-        vsw.v v3, 0x623(x16)
-        vsw.v v4, 0x423(x16)
+        vsw.v v3, 0x623(x8)
+        vsw.v v4, 0x423(x8)
 
 		sub x7, x7, x5
-		add x16, x16, x4
+		add x16, x16, x6
 		blt x0, x7, loop3
 
         nop

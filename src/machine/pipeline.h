@@ -245,6 +245,7 @@ struct MemoryInterstage {
     Address computed_next_inst_addr = 0_addr;
     Address mem_addr = 0_addr; // Address used to access memory
     RegisterValue towrite_val = 0;
+    VectorRegister* towrite_vector = nullptr;
     ExceptionCause excause = EXCAUSE_NONE;
     RegisterId num_rd = 0;
     bool memtoreg = false;

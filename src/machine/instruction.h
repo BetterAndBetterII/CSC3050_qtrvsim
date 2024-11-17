@@ -62,9 +62,10 @@ enum InstructionFlags : unsigned {
     IMF_AMO = 1L << 23,        /**< Instruction is AMO */
     IMF_VECTOR = 1L << 24,     /**< Instruction is vector */
     IMF_VECTOR_RD = 1L << 25, /**< Vector instruction has rs1 */
+    IMF_VSETVL = 1L << 26,     /**< Vector instruction is VSETVL */
     // TODO do we want to add those signals to the visualization?
 
-    IMF_RV64 = 1L << 25, /**< Mark instructions which are available in 64-bit mode only. */
+    IMF_RV64 = 1L << 27, /**< Mark instructions which are available in 64-bit mode only. */
 };
 
 /**

@@ -57,7 +57,7 @@ RegisterValue vector_add_vi(VectorRegister *vd,
                   const VectorRegister &vs2,
                   RegisterValue imm);
 
-RegisterValue vector_mul_vv(const VectorRegister &vs2,
+RegisterValue vector_mul_vv(VectorRegister *vd, const VectorRegister &vs2,
                   const VectorRegister &vs1);
 
 void vector_load(VectorRegister *vd,

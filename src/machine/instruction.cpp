@@ -61,11 +61,11 @@ struct ArgumentDesc {
 
 static const ArgumentDesc arg_desc_list[] = {
     // Destination register (rd)
-    ArgumentDesc('d', 'g', 0, 0x1f, { { { 5, 7 } }, 0 }),
+    ArgumentDesc('d', 'g', 0, 0x3F, { { { 5, 7 } }, 0 }),
     // Source register 1 (rs1/rs)
-    ArgumentDesc('s', 'g', 0, 0x1f, { { { 5, 15 } }, 0 }),
+    ArgumentDesc('s', 'g', 0, 0x3F, { { { 5, 15 } }, 0 }),
     // Source register 2 (rs2/rt)
-    ArgumentDesc('t', 'g', 0, 0x1f, { { { 5, 20 } }, 0 }),
+    ArgumentDesc('t', 'g', 0, 0x3F, { { { 5, 20 } }, 0 }),
     // I-type immediate for arithmetic instructions (12bits)
     ArgumentDesc('j', 'n', -0x800, 0x7ff, { { { 12, 20 } }, 0 }),
     // Shift for bit shift instructions (5bits)
@@ -411,13 +411,13 @@ static const struct InstructionMap VECTOR_LOAD_map[] = {
     IM_UNKNOWN,
     IM_UNKNOWN,
     {"vlw.v", IT_I,
-        { .alu_op=AluOp::ADD },
+        { .alu_op = AluOp::ADD },
         AC_V32,  // 向量加载
         nullptr,
-        {"vd", "o(s)"},
-        0x00106007,  // 操作码: 0x00000007  00106007
+        {"d", "o(s)"},
+        0x00006007,  // 操作码: 0x00000007  00106007
         0x0000707f,
-        { .flags = FLAGS_ALU_I_LOAD | IMF_VECTOR },
+        { .flags = FLAGS_ALU_I_LOAD | IMF_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
     IM_UNKNOWN
@@ -431,10 +431,10 @@ static const struct InstructionMap VECTOR_STORE_map[] = {
     IM_UNKNOWN,
     IM_UNKNOWN,
     {"vsw.v", IT_S,
-        { .alu_op=AluOp::ADD },
+        { .alu_op = AluOp::ADD },
         AC_V32,  // 向量存储
         nullptr,
-        {"vs3", "q(s)"},
+        {"t", "q(s)"},
         0x00006027,  // 操作码: 0x00000027  00006027
         0x0000707f,
         { .flags = FLAGS_ALU_I_STORE | IMF_VECTOR },
@@ -448,9 +448,9 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         { .vector_op=VectorOp::VADDV },
         NOMEM,
         nullptr,
-        {"vd", "vs2", "vs1"},
+        {"d", "s", "t"},
         0x00000057,  // 操作码: 0x00000057
-        0xfc00707f,
+        0x0000707f,
         { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
@@ -458,9 +458,9 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         { .vector_op=VectorOp::VADDV },
         NOMEM,
         nullptr,
-        {"vd", "vs2", "vs1"},
+        {"d", "s", "t"},
         0x00001057,  // 操作码: 0x00001057
-        0xfc00707f,
+        0x0000707f,
         { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
@@ -468,19 +468,19 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         { .vector_op=VectorOp::VMULV },
         NOMEM,
         nullptr,
-        {"vd", "vs2", "vs1"},
+        {"d", "s", "t"},
         0x00002057,  // 操作码: 0x00002057
-        0xfc00707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        0x0000707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
     {"vadd.vi", IT_R,
         { .vector_op=VectorOp::VADDI },
         NOMEM,
         nullptr,
-        {"vd", "vs2", "j"},  // j 表示立即数
+        {"d", "s", "j"},  // j 表示立即数
         0x00003057,  // 操作码: 0x00003057
-        0xfc00707f,
+        0x0000707f,
         { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
@@ -488,9 +488,9 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         { .vector_op=VectorOp::VADDX },
         NOMEM,
         nullptr,
-        {"vd", "vs2", "s"},  // s 表示标量寄存器
+        {"d", "s", "t"},  // s 表示标量寄存器
         0x00004057,  // 操作码: 0x00004057
-        0xfc00707f,
+        0x0000707f,
         { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
@@ -502,8 +502,8 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         nullptr,
         {"d", "s", "t"},
         0x00007057,  // 操作码: 0x00007057
-        0xfe007fff,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        0x0000707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VSETVL },
         nullptr
     },
     IM_UNKNOWN
@@ -1126,7 +1126,10 @@ size_t Instruction::code_from_tokens(
     if (str_to_instruction_code_map.isEmpty()) { instruction_from_string_build_base(); }
 
     Instruction result = base_from_tokens(inst, reloc);
+    DEBUG("[Trying] Decoded instruction %s", result.to_str(inst.address).toStdString().c_str());
+
     if (result.data() != 0) {
+        DEBUG("Decoded instruction %s", result.to_str(inst.address).toStdString().c_str());
         if (result.size() > buffsize) {
             // NOTE: this is bug, not user error.
             throw ParseError("insufficient buffer size to write parsed instruction");
@@ -1137,6 +1140,7 @@ size_t Instruction::code_from_tokens(
 
     if (pseudoinst_enabled) {
         size_t pseudo_result = pseudo_from_tokens(code, buffsize, inst, reloc);
+        DEBUG("Decoded instruction %s", Instruction(*code).to_str(inst.address).toStdString().c_str());
         if (pseudo_result != 0) { return pseudo_result; }
     }
     throw ParseError("unknown instruction");
@@ -1328,7 +1332,6 @@ Instruction Instruction::base_from_tokens(
                     }
                     continue;
                 }
-
                 for (int field_index = 0; field_index < (int)im->args.size(); field_index++) {
                     const QString &arg = im->args[field_index];
                     QString field_token = inst.fields[field_index];
@@ -1338,6 +1341,7 @@ Instruction Instruction::base_from_tokens(
                 }
                 return Instruction(inst_code);
             } catch (ParseError &pe) {
+                ERROR("Parse Inst %s fields ERROR: %s", inst.base.toStdString().c_str(), qPrintable(pe.message));
                 rethrow = true;
                 parse_error = pe;
             }

@@ -60,7 +60,7 @@ RegisterValue vector_operate_vector(
     case VectorOp::VSETVL:
         return vector_set_vl(rs1, imm);
     case VectorOp::VMULV:
-        return vector_mul_vv(*vs2, *vs1);
+        return vector_mul_vv(vd, *vs2, *vs1);
     case VectorOp::VADDV:
         return vector_add_vv(vd, *vs2, *vs1);
     case VectorOp::VADDX:
@@ -79,26 +79,6 @@ RegisterValue vector_operate_vector(
     }
 }
 
-//VectorRegister vector_operate_vector(
-//    VectorOp op,
-//    const VectorRegister *vd,
-//    const VectorRegister *vs2,
-//    const VectorRegister *vs1,
-//    RegisterValue rs1,
-//    RegisterValue imm){
-//    switch(op) {
-//    case VectorOp::VADDV:
-//        return vector_add_vv(*vd, *vs2, *vs1);
-//    case VectorOp::VADDX:
-//        return vector_add_vx(vd, *vs2, rs1);
-//    case VectorOp::VADDI:
-//        return vector_add_vi(vd, *vs2, imm);
-//    default:
-//        qDebug("ERROR: Unknown vector operation");
-//        return {};
-//    }
-//}
-
 // 向量长度和类型的全局状态
 static struct {
     uint32_t vl;       // 向量长度寄存器
@@ -109,9 +89,10 @@ static struct {
 RegisterValue vector_set_vl(RegisterValue rs1, RegisterValue rs2) {
     // rs1包含请求的向量长度
     // rs2包含向量元素类型(8/16/32)
-    vector_state.vl = rs1.as_u32();
-    vector_state.vtype = rs2.as_u32();
-    
+    qDebug("executing vector_set_vl, rs1: %d, rs2: %d", rs1.as_u32(), rs2.as_u32());
+    vector_state.vl = std::min(rs1.as_u32(), static_cast<uint32_t>(32));
+    vector_state.vtype = 32;  // 默认为32位
+
     // 返回实际设置的向量长度
     return {vector_state.vl};
 }
@@ -120,9 +101,11 @@ RegisterValue vector_set_vl(RegisterValue rs1, RegisterValue rs2) {
 RegisterValue vector_add_vv(VectorRegister *vd,
                   const VectorRegister &vs2,
                   const VectorRegister &vs1) {
+    qDebug("executing vector_add_vv, vl: %d, vtype: %d", vector_state.vl, vector_state.vtype);
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
+                qDebug("rd[%d] = %d", i, vs2.get_u32(i) + vs1.get_u32(i));
                 vd->set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
                 break;
             default:
@@ -132,28 +115,15 @@ RegisterValue vector_add_vv(VectorRegister *vd,
     return {0};
 }
 
-//VectorRegister vector_add_vv(const VectorRegister &vs2,
-//                            const VectorRegister &vs1) {
-//    VectorRegister vd;
-//    for(uint32_t i = 0; i < vector_state.vl; i++) {
-//        switch(vector_state.vtype) {
-//        case 32:
-//            vd.set_u32(i, vs2.get_u32(i) + vs1.get_u32(i));
-//            break;
-//        default:
-//            qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
-//        }
-//    }
-//    return vd;
-//}
-
 // 向量-标量加法
 RegisterValue vector_add_vx(VectorRegister *vd,
                   const VectorRegister &vs2, 
                   RegisterValue rs1) {
+    qDebug("executing vector_add_vx");
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
+                qDebug("rd[%d] = %d", i, vs2.get_u32(i) + rs1.as_u32());
                 vd->set_u32(i, vs2.get_u32(i) + rs1.as_u32());
                 break;
             default:
@@ -167,6 +137,8 @@ RegisterValue vector_add_vx(VectorRegister *vd,
 RegisterValue vector_add_vi(VectorRegister *vd,
                   const VectorRegister &vs2,
                   RegisterValue imm) {
+    qDebug("executing vector_add_vi");
+
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
             case 32:
@@ -179,25 +151,29 @@ RegisterValue vector_add_vi(VectorRegister *vd,
     return {0};
 }
 
-RegisterValue vector_mul_vv(const VectorRegister &vs2,
+RegisterValue vector_mul_vv(VectorRegister *vd,
+                            const VectorRegister &vs2,
                             const VectorRegister &vs1) {
-    auto result = RegisterValue(0);
+    qDebug("executing vector_mul_vv");
 
-    for(uint32_t i = 0; i < vector_state.vl; i++) {
-        switch(vector_state.vtype) {
-            case 32:
-                result = RegisterValue(result.as_u32() + 
-                         vs2.get_u32(i) * vs1.get_u32(i));
-                break;
+    switch (vector_state.vtype) {
+    case 32:
+        for (uint32_t i = 0; i < vector_state.vl; i++) {
+            qDebug("vs2[%d]: %d, vs1[%d]: %d", i, vs2.get_u32(i), i, vs1.get_u32(i));
+            vd->set_u32(i, vs2.get_u32(i) * vs1.get_u32(i));
         }
+        break;
+    default: qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
     }
-    return result;
+    return {0};
 }
 
 // 向量加载
 void vector_load(VectorRegister *vd,
                  const uint8_t *memory,
                  uint32_t base_addr) {
+    qDebug("executing vector_load");
+
     uint32_t offset = 0;
     
     for(uint32_t i = 0; i < vector_state.vl; i++) {
@@ -215,12 +191,14 @@ void vector_load(VectorRegister *vd,
 
 void vector_load(VectorRegister *vd,
                  const Address *memory) {
-    uint32_t offset = 0;
+    qDebug("executing vector_load");
 
+    uint32_t offset = 0;
+    qDebug("executing vector_load");
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
         case 32:
-            vd->set_u32(i, *reinterpret_cast<const uint32_t*>(memory->get_raw()));
+            vd->set_u32(i, *reinterpret_cast<const uint32_t*>(memory->get_raw() * 4 + offset));
             offset += 4;
             break;
         default:
@@ -233,6 +211,8 @@ void vector_load(VectorRegister *vd,
 void vector_store(const VectorRegister &vs3,
                   uint8_t *memory,
                   uint32_t base_addr) {
+    qDebug("executing vector_store");
+
     uint32_t offset = 0;
     
     for(uint32_t i = 0; i < vector_state.vl; i++) {
@@ -250,6 +230,8 @@ void vector_store(const VectorRegister &vs3,
 
 void vector_store(const VectorRegister &vs3,
                   const Address *memory) {
+    qDebug("executing vector_store");
+
     for(uint32_t i = 0; i < vector_state.vl; i++) {
         switch(vector_state.vtype) {
         case 32:

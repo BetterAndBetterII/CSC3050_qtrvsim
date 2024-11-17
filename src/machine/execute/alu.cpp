@@ -62,6 +62,7 @@ int64_t alu64_operate(AluOp op, bool modified, RegisterValue a, RegisterValue b)
 int32_t alu32_operate(AluOp op, bool modified, RegisterValue a, RegisterValue b) {
     uint32_t _a = a.as_u32();
     uint32_t _b = b.as_u32();
+    qDebug("alu32_operate: %d %d", _a, _b);
 
     switch (op) {
     case AluOp::ADD: return _a + ((modified) ? -_b : _b);

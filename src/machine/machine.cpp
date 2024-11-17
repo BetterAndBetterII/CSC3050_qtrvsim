@@ -11,7 +11,7 @@ Machine::Machine(MachineConfig config, bool load_symtab, bool load_executable)
     : machine_config(std::move(config))
     , stat(ST_READY) {
     regs = new Registers();
-    VectorRegisters* vregs = new VectorRegisters();
+    vregs = new VectorRegisters();
 
     if (load_executable) {
         ProgramLoader program(machine_config.elf());
@@ -211,6 +211,8 @@ Machine::~Machine() {
     symtab = nullptr;
     delete predictor;
     predictor = nullptr;
+    delete vregs;
+    vregs = nullptr;
 }
 
 const MachineConfig &Machine::config() {
