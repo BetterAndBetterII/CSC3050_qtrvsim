@@ -20,6 +20,9 @@ enum class VectorOp : uint8_t {
 
     // Vector Configuration Instructions (OP-V major opcode: 0b1010111)
     VSETVL  = 0b1010111,  // Vector set length
+
+    // Vector reduction sum
+    VREDSUM = 0b000101  // Vector reduction sum
 };
 
 }

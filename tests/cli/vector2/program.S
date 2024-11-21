@@ -7,7 +7,7 @@ _start:
         vsetvl x5, x29, x4
         li x8, 0
 
-        li x28, 1
+        li x28, 0
         li x6, 1
         li x7, 32
 loop:
@@ -18,7 +18,7 @@ loop:
         blt x28, x7, loop
 
         li x6, 3
-        li x27, 1
+        li x27, 0
         li x9, 0
 loop2:
         sw x6, 0x623(x9)

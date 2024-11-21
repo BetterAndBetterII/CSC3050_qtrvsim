@@ -437,7 +437,7 @@ static const struct InstructionMap VECTOR_STORE_map[] = {
         {"t", "q(s)"},
         0x00006027,  // 操作码: 0x00000027  00006027
         0x0000707f,
-        { .flags = FLAGS_ALU_I_STORE | IMF_VECTOR },
+        { .flags = FLAGS_ALU_I_STORE | IMF_VECTOR | IMF_MEMWRITE | IMF_MEM },
         nullptr
     },
     IM_UNKNOWN
@@ -494,7 +494,16 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
         nullptr
     },
-    IM_UNKNOWN,
+    {"vredsum", IT_R,
+        { .vector_op=VectorOp::VREDSUM },
+        NOMEM,
+        nullptr,
+        {"d", "s", "t"},  // s 表示标量寄存器
+        0x00005057,  // 操作码: 0x00004057
+        0x0000707f,
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        nullptr
+    },
     IM_UNKNOWN,
     {"vsetvl", IT_R,
         { .vector_op=VectorOp::VSETVL },
@@ -505,8 +514,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         0x0000707f,
         { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VSETVL },
         nullptr
-    },
-    IM_UNKNOWN
+    }
 };
 
 static const struct InstructionMap SR_map[] = {

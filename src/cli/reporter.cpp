@@ -60,6 +60,7 @@ constexpr const char *get_exception_name(ExceptionCause exception_cause) {
 
 void Reporter::machine_exception_reached() {
     ExceptionCause excause = machine->get_exception_cause();
+    qDebug("Machine stopped on %s exception.", get_exception_name(excause));
     printf("Machine stopped on %s exception.\n", get_exception_name(excause));
     report();
     QCoreApplication::exit();
@@ -125,6 +126,9 @@ void Reporter::report_regs() {
     for (unsigned i = 0; i < REGISTER_COUNT; i++) {
         report_gp_reg(i, (i == REGISTER_COUNT - 1));
     }
+    for (size_t i = 0; i < 32; i++) {
+        report_vector_reg(i);
+    }
     for (size_t i = 0; i < CSR::REGISTERS.size(); i++) {
         report_csr_reg(i, (i == CSR::REGISTERS.size() - 1));
     }
@@ -150,6 +154,25 @@ void Reporter::report_gp_reg(unsigned int i, bool last) {
     }
     if (dump_format & DumpFormat::CONSOLE) {
         printf("%s:%s%s", qPrintable(key), qPrintable(value), (last) ? "\n" : " ");
+    }
+}
+
+void Reporter::report_vector_reg(size_t i) {
+    QString key = QString::asprintf("V%zu", i);
+    std::vector<uint32_t> data = machine->vregs->read_vr(i).raw_data();
+    std::string _value;
+    for (size_t j = 0; j < data.size(); j++) {
+        _value += QString::asprintf("0x%08x", data[j]).toStdString();
+        if (j != data.size() - 1) { _value += ", "; }
+    }
+    QString value = QString::asprintf("[%s]", _value.c_str());
+    if (dump_format & DumpFormat::JSON) {
+        QJsonObject regs = dump_data_json["regs"].toObject();
+        regs[key] = value;
+        dump_data_json["regs"] = regs;
+    }
+    if (dump_format & DumpFormat::CONSOLE) {
+        printf("%s:%s\n", qPrintable(key), qPrintable(value));
     }
 }
 

@@ -519,6 +519,71 @@ typedef int (OsSyscallExceptionHandler::*syscall_handler_t)(
     uint64_t a5,
     uint64_t a6);
 
+int OsSyscallExceptionHandler::do_spim_print_integer(
+    uint64_t &result,
+    Core *core,
+    uint64_t syscall_num,
+    uint64_t a1,
+    uint64_t a2,
+    uint64_t a3,
+    uint64_t a4,
+    uint64_t a5,
+    uint64_t a6) {
+    (void)core;
+    (void)syscall_num;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+    printf("%" PRId64, a1);
+    result = a1;
+    return result;
+}
+
+int OsSyscallExceptionHandler::do_spim_exit(
+    uint64_t &result,
+    Core *core,
+    uint64_t syscall_num,
+    uint64_t a1,
+    uint64_t a2,
+    uint64_t a3,
+    uint64_t a4,
+    uint64_t a5,
+    uint64_t a6) {
+    (void)core;
+    (void)syscall_num;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+    result = a1;
+    return -result;
+}
+
+int OsSyscallExceptionHandler::do_spim_print_string(
+    uint64_t &result,
+    Core *core,
+    uint64_t syscall_num,
+    uint64_t a1,
+    uint64_t a2,
+    uint64_t a3,
+    uint64_t a4,
+    uint64_t a5,
+    uint64_t a6) {
+    (void)core;
+    (void)syscall_num;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+    printf("%c", static_cast<char>(a1));
+    result = a1;
+    return result;
+}
+
 struct mips_syscall_desc_t {
     const char *name;
     unsigned int args;
@@ -533,6 +598,12 @@ struct rv_syscall_desc_t {
 
 static const rv_syscall_desc_t rv_syscall_args[] = {
 #include "syscallent.h"
+    // 1：打印整数
+    { 1, &OsSyscallExceptionHandler::do_spim_print_integer, "print_integer" },  // 244
+    // 11：打印字符串
+    { 11, &OsSyscallExceptionHandler::do_spim_print_string, "print_char" },  // 245
+    // 10：exit
+    { 10, &OsSyscallExceptionHandler::do_spim_exit, "exit" },  // 246
 };
 
 const unsigned rv_syscall_count = sizeof(rv_syscall_args) / sizeof(*rv_syscall_args);
@@ -567,7 +638,7 @@ bool OsSyscallExceptionHandler::handle_exception(
     FrontendMemory *mem_program = core->get_mem_program();
     (void)mem_program;
 
-#if 1
+#if 0
     printf(
         "Exception cause %d instruction PC 0x%08" PRIx64 " next PC 0x%08" PRIx64 " jump branch "
         "PC 0x%08" PRIx64
@@ -604,12 +675,14 @@ bool OsSyscallExceptionHandler::handle_exception(
     a5 = regs->read_gp(14);
     a6 = regs->read_gp(15);
 
-#if 1
+#if 0
     printf(
         "Syscall %s number %" PRId64 "/0x%" PRIx64 " a1=%" PRIu64 " a2=%" PRIu64 " a3=%" PRIu64 " a4=%" PRIu64 "\n",
         sdesc->name, syscall_num, syscall_num, a1.as_u64(), a2.as_u64(), a3.as_u64(), a4.as_u64());
 
 #endif
+    // 将syscall_num转换为ascii码
+    // printf("%c", static_cast<char>(a1.as_u64()));
     status = (this->*sdesc->handler)(
         result, core, syscall_num, a1.as_u64(), a2.as_u64(), a3.as_u64(), a4.as_u64(), a5.as_u64(),
         a6.as_u64());
@@ -784,13 +857,14 @@ int OsSyscallExceptionHandler::syscall_default_handler(
     uint64_t a5,
     uint64_t a6) {
     const rv_syscall_desc_t *sdesc = &rv_syscall_args[syscall_num];
-#if 1
+#if 0
     printf(
         "Unimplemented syscall %s number %" PRId64 "/0x%" PRIx64 " a1 %" PRId64
         " a2 %" PRId64 " a3 %" PRId64 " a4 %" PRId64 "\n", sdesc->name,
         syscall_num, syscall_num, a1, a2, a3, a4);
-
 #endif
+    unknown_syscall_stop = false;
+
     (void)core;
     (void)syscall_num;
     (void)a1;

@@ -53,7 +53,8 @@ void TestAlu::test_alu64_operate() {
     // Test that combined wrapper does not break anything.
     QCOMPARE(
         alu_combined_operate(
-            { .alu_op = op }, AluComponent::ALU, false, modified, operand_a, operand_b, nullptr, nullptr),
+            { .alu_op = op }, AluComponent::ALU, false, modified, operand_a, operand_b, nullptr, nullptr, nullptr, nullptr
+            ),
         RegisterValue(result));
 }
 
@@ -100,7 +101,7 @@ void TestAlu::test_alu32_operate() {
     // Test that combined wrapper does not break anything.
     QCOMPARE(
         alu_combined_operate(
-            { .alu_op = op }, AluComponent::ALU, true, modified, operand_a, operand_b, nullptr, nullptr),
+            { .alu_op = op }, AluComponent::ALU, true, modified, operand_a, operand_b, nullptr, nullptr, nullptr, nullptr),
         RegisterValue(result));
 }
 
@@ -170,7 +171,7 @@ void TestAlu::test_mul64_operate() {
     QCOMPARE(
         alu_combined_operate(
             (AluCombinedOp) { .mul_op = op }, AluComponent::MUL, false, false, operand_a,
-            operand_b, nullptr, nullptr),
+            operand_b, nullptr, nullptr, nullptr, nullptr),
         RegisterValue(result));
 }
 
@@ -237,7 +238,7 @@ void TestAlu::test_mul32_operate() {
     // Test that combined wrapper does not break anything.
     QCOMPARE(
         alu_combined_operate(
-            (AluCombinedOp) { .mul_op = op }, AluComponent::MUL, true, false, operand_a, operand_b, nullptr, nullptr),
+            (AluCombinedOp) { .mul_op = op }, AluComponent::MUL, true, false, operand_a, operand_b, nullptr, nullptr, nullptr, nullptr),
         RegisterValue(result));
 }
 

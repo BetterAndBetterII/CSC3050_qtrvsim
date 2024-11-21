@@ -44,6 +44,7 @@ RegisterValue vector_operate_vector(
 
 // 向量操作函数声明
 RegisterValue vector_set_vl(RegisterValue rs1, RegisterValue rs2);
+RegisterValue vector_redsum(const VectorRegister &vs1, RegisterValue rs2);
 
 RegisterValue vector_add_vv(VectorRegister *vd,
                   const VectorRegister &vs2,

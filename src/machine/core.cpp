@@ -56,6 +56,7 @@ void Core::step(bool skip_break) {
     emit step_started();
     state.cycle_count++;
     do_step(skip_break);
+    DEBUG("Step done, cycle count: %u", state.cycle_count);
     emit step_done(state);
 }
 
@@ -172,6 +173,7 @@ bool Core::handle_exception(
     bool ret = false;
     ExceptionHandler *exhandler = ex_handlers.value(excause, ex_default_handler.data());
     if (exhandler != nullptr) {
+        DEBUG("Starting exception handling...");
         ret = exhandler->handle_exception(
             this, regs, excause, inst_addr, next_addr, jump_branch_pc, mem_ref_addr);
     }
@@ -466,9 +468,14 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
         if (excause != EXCAUSE_NONE) return RegisterValue(0);
         if (dt.inst.flags() & IMF_VECTOR && !(dt.inst.flags() & IMF_MEM)) {
             return vector_operate_vector(
-                    dt.aluop.vector_op, dt.vector_rd, dt.vector_rs1, dt.vector_rs2, alu_fst,
-                    alu_sec, nullptr
-                    );
+                dt.aluop.vector_op, dt.vector_rd, dt.vector_rs1, dt.vector_rs2, alu_fst, alu_sec,
+                nullptr);
+        }
+        if (dt.inst.flags() & IMF_VECTOR && dt.inst.flags() & IMF_MEMWRITE) {
+            // Set vector_rd to vector_rs2 to avoid overwriting vector_rs2
+            for (int i = 0; i < 32; i++) {
+                dt.vector_rd->set_u32(i, vector_rs2->get_u32(i));
+            }
         }
         return alu_combined_operate(dt.aluop, dt.alu_component, dt.w_operation, dt.alu_mod, alu_fst, alu_sec, nullptr, nullptr, nullptr, nullptr);
     }();
@@ -504,7 +511,7 @@ ExecuteState Core::execute(const DecodeInterstage &dt) {
                  .branch_jal_target = branch_jal_target,
                  .val_rt = dt.val_rt,
                  .alu_val = alu_val,
-                 .vector_val = vector_rs2,
+                 .vector_val = dt.vector_rd,
                  .immediate_val = dt.immediate_val,
                  .csr_read_val = dt.csr_read_val,
                  .csr_address = dt.csr_address,
@@ -538,11 +545,12 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
     Address computed_next_inst_addr;
 
     enum ExceptionCause excause = dt.excause;
-    if (dt.inst.flags() & IMF_VSETVL) {
-        vregs->set_vl(towrite_val.as_u32());
-        vregs->set_vtype(static_cast<uint32_t>(dt.val_rt));
-    }
+
     if (excause == EXCAUSE_NONE) {
+        if (dt.inst.flags() & IMF_VSETVL) {
+            vregs->set_vl(towrite_val.as_u32());
+            vregs->set_vtype(static_cast<uint32_t>(dt.val_rt));
+        }
         if (is_special_access(dt.memctl)) {
             if (vector_inst) {
                 if (memwrite) {
@@ -662,7 +670,7 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
 WritebackState Core::writeback(const MemoryInterstage &dt) {
     if (dt.regwrite) {
         if (dt.inst.flags() & IMF_VECTOR_RD) {
-            DEBUG("Writing back vector register %d, vrd[0] = %d ", static_cast<int>(dt.num_rd), dt.towrite_vector->get_u32(0));
+            DEBUG("Writing back vector register %d, vrd[0] = %d, vrd[1] = %d, vrd[2] = %d, ", static_cast<int>(dt.num_rd), dt.towrite_vector->get_u32(0), dt.towrite_vector->get_u32(1), dt.towrite_vector->get_u32(2));
             vregs->write_vr(dt.num_rd, *dt.towrite_vector);
         }
         else {
@@ -777,9 +785,11 @@ void CorePipelined::do_step(bool skip_break) {
         /* By default, execution continues with the next instruction after exception. */
         regs->write_pc(mem_wb.computed_next_inst_addr);
         /* Exception handler may override this behavior and change the PC (e.g. hwbreak). */
+        DEBUG("Starting exception handling");
         handle_exception(
             mem_wb.excause, mem_wb.inst, mem_wb.inst_addr, mem_wb.computed_next_inst_addr,
             jump_branch_pc, mem_wb.mem_addr);
+        DEBUG("handle_exception: %d", mem_wb.excause);
     } else if (detect_mispredicted_jump() || mem_wb.csr_written) {
         /* If the jump was predicted incorrectly or csr register was written, we need to flush the
          * pipeline. */
@@ -896,7 +906,7 @@ bool StopExceptionHandler::handle_exception(
     Q_UNUSED(core)
     DEBUG(
         "Exception cause %d instruction PC 0x%08" PRIx64 " next PC 0x%08" PRIx64
-        " jump branch PC 0x%08" PRIx64 "registers PC 0x%08" PRIx64 " mem ref 0x%08" PRIx64,
+        " jump branch PC 0x%08" PRIx64 " registers PC 0x%08" PRIx64 " mem ref 0x%08" PRIx64,
         excause, inst_addr.get_raw(), next_addr.get_raw(), jump_branch_pc.get_raw(),
         regs->read_pc().get_raw(), mem_ref_addr.get_raw());
     return true;

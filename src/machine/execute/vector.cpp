@@ -59,6 +59,8 @@ RegisterValue vector_operate_vector(
     switch(op) {
     case VectorOp::VSETVL:
         return vector_set_vl(rs1, imm);
+    case VectorOp::VREDSUM:
+        return vector_redsum(*vs2, imm);
     case VectorOp::VMULV:
         return vector_mul_vv(vd, *vs2, *vs1);
     case VectorOp::VADDV:
@@ -95,6 +97,24 @@ RegisterValue vector_set_vl(RegisterValue rs1, RegisterValue rs2) {
 
     // 返回实际设置的向量长度
     return {vector_state.vl};
+}
+
+RegisterValue vector_redsum(const VectorRegister &vs1, const RegisterValue rs2) {
+    RegisterValue rd = {0};
+    qDebug("executing vector_redsum, vl: %d, vtype: %d", vector_state.vl, vector_state.vtype);
+    switch (vector_state.vtype) {
+        case 32:
+            for (uint32_t i = 0; i < vector_state.vl; i++) {
+                qDebug("rd = %d, vs1[%d] = %d", rd.as_u32(), i, vs1.get_u32(i));
+                rd = vs1.get_u32(i) + rd.as_u32();
+            }
+            rd = rd.as_u32() + rs2.as_u32();
+            break;
+        default: qDebug("ERROR: Unsupported vector type: %u", vector_state.vtype);
+    }
+
+    qDebug("rd = %d", rd.as_u32());
+    return rd;
 }
 
 // 向量-向量加法

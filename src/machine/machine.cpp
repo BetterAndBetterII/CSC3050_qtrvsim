@@ -487,6 +487,7 @@ enum ExceptionCause Machine::get_exception_cause() const {
         return EXCAUSE_NONE;
     }
     val = (controlst->read_internal(CSR::Id::MCAUSE).as_u64());
+    qDebug("Get exception cause: %d", val);
     if (val & 0xffffffff80000000) {
         return EXCAUSE_INT;
     } else {

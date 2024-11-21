@@ -6,6 +6,9 @@
 #include "machine/memory/cache/cache.h"
 #include "machine/memory/memory_bus.h"
 #include "machine/predictor.h"
+#include "vector_registers.h"
+#include "vector_register.h"
+#include "execute/vector.h"
 
 #include <QVector>
 
@@ -42,6 +45,7 @@ template<typename Core>
 void test_program_with_single_result() {
     QFETCH(vector<QString>, instructions);
     QFETCH(Registers, registers);
+    QFETCH(VectorRegisters, vregs);
     QFETCH(RegisterValue, x10_result);
     QFETCH(Xlen, xlen);
 
@@ -49,7 +53,7 @@ void test_program_with_single_result() {
     TrivialBus memory(&memory_backend);
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
-    Core core(&registers, &predictor, &memory, &memory, &controlst, Xlen::_32, config_isa_word_default);
+    Core core(&registers, &vregs, &predictor, &memory, &memory, &controlst, Xlen::_32, config_isa_word_default);
 
     size_t instruction_count = compile_simple_program(memory, 0x200_addr, instructions);
     if (typeid(Core) == typeid(CorePipelined)) { instruction_count += 3; } // finish pipeline
@@ -464,6 +468,7 @@ static void core_alu_forward_data() {
     QTest::addColumn<QVector<uint32_t>>("code");
     QTest::addColumn<Registers>("reg_init");
     QTest::addColumn<Registers>("reg_res");
+    QTest::addColumn<VectorRegisters>("vreg_res");
     // Note that we shouldn't be touching program counter as that is handled
     // automatically and differs if we use pipelining
 
@@ -488,6 +493,7 @@ static void core_alu_forward_data() {
         Registers regs_init;
                 regs_init.write_pc(0x200_addr);
                 Registers regs_res(regs_init);
+        VectorRegisters vregs_res;
                 regs_res.write_gp(1, 0x222);
                 regs_res.write_gp(2, 3);
                 regs_res.write_gp(3, 0x223);
@@ -495,7 +501,7 @@ static void core_alu_forward_data() {
                 regs_res.write_gp(5, 0x225);
                 regs_res.write_gp(6, 0x225);
                 regs_res.write_pc(regs_init.read_pc() + 4 * code.length() - 4);
-                QTest::newRow("alu_forward_1") << code << regs_init << regs_res;
+                QTest::newRow("alu_forward_1") << code << regs_init << regs_res << vregs_res;
     }
 
     // Test forwarding in JR and JALR
@@ -536,6 +542,7 @@ static void core_alu_forward_data() {
         Registers regs_init;
         regs_init.write_pc(0x200_addr);
         Registers regs_res(regs_init);
+        VectorRegisters vregs_res;
         regs_res.write_gp( 1, 0x00000234);
         regs_res.write_gp( 5, 0x00000250);
         regs_res.write_gp( 9, 0x000002cd);
@@ -544,7 +551,7 @@ static void core_alu_forward_data() {
         regs_res.write_gp(12, 0x03333000);
         regs_res.write_gp(14, 0x06666000);
         regs_res.write_pc(regs_init.read_pc() + 4 * code.length() - 4);
-        QTest::newRow("j_jal_jalr") << code << regs_init << regs_res;
+        QTest::newRow("j_jal_jalr") << code << regs_init << regs_res << vregs_res;
     }
 
     // Test multiplication and division
@@ -567,6 +574,7 @@ static void core_alu_forward_data() {
         Registers regs_init;
         regs_init.write_pc(0x80020000_addr);
         Registers regs_res(regs_init);
+        VectorRegisters vregs_res;
         uint32_t val_a = 0x12345678;
         uint32_t val_b = 0xabcdef01;
         uint64_t val_u64;
@@ -584,7 +592,7 @@ static void core_alu_forward_data() {
         regs_res.write_gp(22, val_b / val_a);
         regs_res.write_gp(23, val_b % val_a);
         regs_res.write_pc(regs_init.read_pc() + 4 * code.length() - 4);
-        QTest::newRow("mul-div") << code << regs_init << regs_res;
+        QTest::newRow("mul-div") << code << regs_init << regs_res << vregs_res;
     }
 
     // branches
@@ -640,13 +648,14 @@ static void core_alu_forward_data() {
         Registers regs_init;
         regs_init.write_pc(0x200_addr);
         Registers regs_res(regs_init);
+        VectorRegisters vregs_res;
         regs_res.write_gp(1, 2);
         regs_res.write_gp(2, 1);
         regs_res.write_gp(3, 0x8d0);
         regs_res.write_gp(4, 2);
         regs_res.write_gp(5, 1);
         regs_res.write_pc(regs_init.read_pc() + 4 * code.length());
-        QTest::newRow("branch_conditions_test") << code << regs_init << regs_res;
+        QTest::newRow("branch_conditions_test") << code << regs_init << regs_res << vregs_res;
     }
 }
 
@@ -699,6 +708,7 @@ void TestCore::singlecore_alu_forward() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     Memory mem_init(LITTLE);
     TrivialBus mem_init_frontend(&mem_init);
     Memory mem_res(LITTLE);
@@ -707,7 +717,7 @@ void TestCore::singlecore_alu_forward() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CoreSingle core(&reg_init, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst, Xlen::_32, config_isa_word_default);
+    CoreSingle core(&reg_init, &vreg_res, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst, Xlen::_32, config_isa_word_default);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
 
@@ -715,6 +725,7 @@ void TestCore::pipecore_alu_forward() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     Memory mem_init(LITTLE);
     TrivialBus mem_init_frontend(&mem_init);
     Memory mem_res(LITTLE);
@@ -723,7 +734,7 @@ void TestCore::pipecore_alu_forward() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CorePipelined core(&reg_init, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst,
+    CorePipelined core(&reg_init, &vreg_res, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst,
                        Xlen::_32, config_isa_word_default, MachineConfig::HazardUnit::HU_STALL_FORWARD);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
@@ -732,6 +743,7 @@ void TestCore::pipecorestall_alu_forward() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     Memory mem_init(LITTLE);
     TrivialBus mem_init_frontend(&mem_init);
     Memory mem_res(LITTLE);
@@ -740,7 +752,7 @@ void TestCore::pipecorestall_alu_forward() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CorePipelined core(&reg_init, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst,
+    CorePipelined core(&reg_init, &vreg_res, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst,
                        Xlen::_32, config_isa_word_default, MachineConfig::HazardUnit::HU_STALL);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
@@ -751,6 +763,7 @@ static void core_memory_tests_data() {
     QTest::addColumn<QVector<uint32_t>>("code");
     QTest::addColumn<Registers>("reg_init");
     QTest::addColumn<Registers>("reg_res");
+    QTest::addColumn<VectorRegisters>("vreg_res");
     QTest::addColumn<Memory>("mem_init");
     QTest::addColumn<Memory>("mem_res");
 
@@ -802,6 +815,7 @@ static void core_memory_tests_data() {
         Registers regs_init;
         regs_init.write_pc(0x200_addr);
         Registers regs_res(regs_init);
+        VectorRegisters vreg_res;
         regs_res.write_gp( 5, 0x438);
         regs_res.write_gp( 8,  0x3c);
         regs_res.write_gp( 9,  0x3c);
@@ -824,7 +838,7 @@ static void core_memory_tests_data() {
             memory_write_u32(&mem_res, addr, i);
             addr += 4;
         }
-        QTest::newRow("cache_insert_sort") << code << regs_init << regs_res << mem_init << mem_res;
+        QTest::newRow("cache_insert_sort") << code << regs_init << regs_res << vreg_res << mem_init << mem_res;
     }
 
     // unaligned lw a lw and sw
@@ -869,7 +883,7 @@ static void core_memory_tests_data() {
         Registers regs_init;
         regs_init.write_pc(0x200_addr);
         Registers regs_res(regs_init);
-
+        VectorRegisters vreg_res;
         regs_res.write_gp(2, (int32_t)0x04030201);
         regs_res.write_gp(3, (int32_t)0x05040302);
         regs_res.write_gp(4, (int32_t)0x06050403);
@@ -912,7 +926,7 @@ static void core_memory_tests_data() {
         }
 
         regs_res.write_pc(regs_init.read_pc() + 4 * code.length() - 4);
-        QTest::newRow("lw_sw_unaligned_be") << code << regs_init << regs_res << mem_init << mem_res;
+        QTest::newRow("lw_sw_unaligned_be") << code << regs_init << regs_res << vreg_res << mem_init << mem_res;
     }
 }
 
@@ -940,6 +954,7 @@ void TestCore::singlecore_memory_tests() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     QFETCH(Memory, mem_init);
     QFETCH(Memory, mem_res);
     TrivialBus mem_init_frontend(&mem_init);
@@ -948,7 +963,7 @@ void TestCore::singlecore_memory_tests() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CoreSingle core(&reg_init, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst, Xlen::_32, config_isa_word_default);
+    CoreSingle core(&reg_init, &vreg_res, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst, Xlen::_32, config_isa_word_default);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
 
@@ -956,6 +971,7 @@ void TestCore::pipecore_nc_memory_tests() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     QFETCH(Memory, mem_init);
     QFETCH(Memory, mem_res);
     TrivialBus mem_init_frontend(&mem_init);
@@ -964,7 +980,7 @@ void TestCore::pipecore_nc_memory_tests() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CorePipelined core(&reg_init, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst, Xlen::_32, config_isa_word_default);
+    CorePipelined core(&reg_init, &vreg_res, &predictor, &mem_init_frontend, &mem_init_frontend, &controlst, Xlen::_32, config_isa_word_default);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
 
@@ -972,6 +988,7 @@ void TestCore::pipecore_wt_na_memory_tests() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     QFETCH(Memory, mem_init);
     QFETCH(Memory, mem_res);
     TrivialBus mem_init_frontend(&mem_init);
@@ -990,7 +1007,7 @@ void TestCore::pipecore_wt_na_memory_tests() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CorePipelined core(&reg_init, &predictor, &i_cache, &d_cache, &controlst, Xlen::_32, config_isa_word_default);
+    CorePipelined core(&reg_init, &vreg_res, &predictor, &i_cache, &d_cache, &controlst, Xlen::_32, config_isa_word_default);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
 
@@ -998,6 +1015,7 @@ void TestCore::pipecore_wt_a_memory_tests() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     QFETCH(Memory, mem_init);
     QFETCH(Memory, mem_res);
     TrivialBus mem_init_frontend(&mem_init);
@@ -1015,7 +1033,7 @@ void TestCore::pipecore_wt_a_memory_tests() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CorePipelined core(&reg_init, &predictor, &i_cache, &d_cache, &controlst, Xlen::_32, config_isa_word_default);
+    CorePipelined core(&reg_init, &vreg_res, &predictor, &i_cache, &d_cache, &controlst, Xlen::_32, config_isa_word_default);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
 
@@ -1023,6 +1041,7 @@ void TestCore::pipecore_wb_memory_tests() {
     QFETCH(QVector<uint32_t>, code);
     QFETCH(Registers, reg_init);
     QFETCH(Registers, reg_res);
+    QFETCH(VectorRegisters, vreg_res);
     QFETCH(Memory, mem_init);
     QFETCH(Memory, mem_res);
     TrivialBus mem_init_frontend(&mem_init);
@@ -1040,47 +1059,49 @@ void TestCore::pipecore_wb_memory_tests() {
     BranchPredictor predictor {};
     CSR::ControlState controlst {};
 
-    CorePipelined core(&reg_init, &predictor, &i_cache, &d_cache, &controlst, Xlen::_32, config_isa_word_default);
+    CorePipelined core(&reg_init, &vreg_res, &predictor, &i_cache, &d_cache, &controlst, Xlen::_32, config_isa_word_default);
     run_code_fragment(core, reg_init, reg_res, mem_init, mem_res, code);
 }
 
 void extension_m_data() {
     QTest::addColumn<vector<QString>>("instructions");
     QTest::addColumn<Registers>("registers");
+    QTest::addColumn<VectorRegisters>("vregs");
     QTest::addColumn<RegisterValue>("x10_result");
     QTest::addColumn<Xlen>("xlen");
 
     Registers registers {};
+    VectorRegisters vregs {};
     registers.write_gp(1, 1111111);
     registers.write_gp(2, 7);
-    QTest::addRow("mul") << vector<QString> { "mul x10, x1, x2", "nop" } << registers
+    QTest::addRow("mul") << vector<QString> { "mul x10, x1, x2", "nop" } << registers << vregs
                          << RegisterValue { 7777777 } << Xlen::_32;
     registers.write_gp(1, 7777777);
-    QTest::addRow("div") << vector<QString> { "div x10, x1, x2", "nop" } << registers
+    QTest::addRow("div") << vector<QString> { "div x10, x1, x2", "nop" } << registers << vregs
                          << RegisterValue { 1111111 } << Xlen::_32;
     registers.write_gp(2, 1000);
-    QTest::addRow("rem") << vector<QString> { "rem x10, x1, x2", "nop" } << registers
+    QTest::addRow("rem") << vector<QString> { "rem x10, x1, x2", "nop" } << registers << vregs
                          << RegisterValue { 777 } << Xlen::_32;
     registers.write_gp(1, 15);
     registers.write_gp(2, -10);
-    QTest::addRow("mulh 15x-10") << vector<QString> { "mulh x10, x1, x2", "nop" } << registers
+    QTest::addRow("mulh 15x-10") << vector<QString> { "mulh x10, x1, x2", "nop" } << registers << vregs
                                  << RegisterValue { (uint64_t)0xffffffffffffffffULL } << Xlen::_32;
-    QTest::addRow("mulhu 15x-10") << vector<QString> { "mulhu x10, x1, x2", "nop" } << registers
+    QTest::addRow("mulhu 15x-10") << vector<QString> { "mulhu x10, x1, x2", "nop" } << registers << vregs
                                   << RegisterValue { 14 } << Xlen::_32;
-    QTest::addRow("mulhsu 15x-10") << vector<QString> { "mulhsu x10, x1, x2", "nop" } << registers
+    QTest::addRow("mulhsu 15x-10") << vector<QString> { "mulhsu x10, x1, x2", "nop" } << registers << vregs
                                    << RegisterValue { 14 } << Xlen::_32;
-    QTest::addRow("mulh -10x15") << vector<QString> { "mulh x10, x2, x1", "nop" } << registers
+    QTest::addRow("mulh -10x15") << vector<QString> { "mulh x10, x2, x1", "nop" } << registers << vregs
                                  << RegisterValue { (uint64_t)0xffffffffffffffffULL } << Xlen::_32;
-    QTest::addRow("mulhu -10x15") << vector<QString> { "mulhu x10, x2, x1", "nop" } << registers
+    QTest::addRow("mulhu -10x15") << vector<QString> { "mulhu x10, x2, x1", "nop" } << registers << vregs
                                   << RegisterValue { 14 } << Xlen::_32;
     QTest::addRow("mulhsu -10x15")
-        << vector<QString> { "mulhsu x10, x2, x1", "nop" } << registers
+        << vector<QString> { "mulhsu x10, x2, x1", "nop" } << registers << vregs
         << RegisterValue { (uint64_t)0xffffffffffffffffULL } << Xlen::_32;
     registers.write_gp(1, -1);
     registers.write_gp(2, 0x10000);
-    QTest::addRow("divu") << vector<QString> { "divu x10, x1, x2", "nop" } << registers
+    QTest::addRow("divu") << vector<QString> { "divu x10, x1, x2", "nop" } << registers << vregs
                           << RegisterValue { 0xFFFF } << Xlen::_32;
-    QTest::addRow("remu") << vector<QString> { "remu x10, x1, x2", "nop" } << registers
+    QTest::addRow("remu") << vector<QString> { "remu x10, x1, x2", "nop" } << registers << vregs
                           << RegisterValue { 0xFFFF } << Xlen::_32;
 }
 

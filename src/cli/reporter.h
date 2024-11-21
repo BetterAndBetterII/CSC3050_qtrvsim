@@ -72,6 +72,7 @@ private:
     void report_range(const DumpRange &range);
     void report_csr_reg(size_t internal_id, bool last);
     void report_gp_reg(unsigned int i, bool last);
+    void report_vector_reg(size_t i);
     void report_cache(const char *cache_name, const machine::Cache &cache);
 
 public:

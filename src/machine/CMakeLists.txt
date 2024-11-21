@@ -238,6 +238,12 @@ if(NOT ${WASM})
 			simulator_exception.cpp
 			simulator_exception.h
 			machineconfig.cpp
+			execute/vector.cpp
+			execute/vector.h
+			execute/vector_op.h
+			vector_register.h
+			vector_registers.h
+			vector_registers.cpp
 			)
 	target_link_libraries(core_test
 			PRIVATE ${QtLib}::Core ${QtLib}::Test libelf)
