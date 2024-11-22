@@ -74,6 +74,22 @@ add_cli_test(
 )
 
 add_cli_test(
+        NAME vector_redsum
+        ARGS
+        --asm "${CMAKE_SOURCE_DIR}/tests/cli/vector_redsum/program.S"
+        --dump-registers
+        EXPECTED_OUTPUT "tests/cli/vector_redsum/stdout.txt"
+)
+
+add_cli_test(
+        NAME matrix
+        ARGS
+        --asm "${CMAKE_SOURCE_DIR}/tests/cli/matrix/program.S"
+        --dump-registers
+        EXPECTED_OUTPUT "tests/cli/matrix/stdout.txt"
+)
+
+add_cli_test(
         NAME asm_error
         ARGS
         --asm "${CMAKE_SOURCE_DIR}/tests/cli/asm-error/program.S"

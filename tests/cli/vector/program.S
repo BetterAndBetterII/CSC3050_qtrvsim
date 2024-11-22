@@ -51,9 +51,6 @@ resetvi:
 	    add x16, x16, x6
 	    blt x0, x7, loop3
 
-	    vlw.v v1, 0x423(x0)
-	    vredsum x3, v1, x16
-
         nop
         nop
         ebreak

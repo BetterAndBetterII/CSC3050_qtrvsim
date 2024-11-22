@@ -451,7 +451,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"d", "s", "t"},
         0x00000057,  // 操作码: 0x00000057
         0x0000707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD | IMF_VLCYCLES },
         nullptr
     },
     {"vsub.vv", IT_R,
@@ -461,7 +461,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"d", "s", "t"},
         0x00001057,  // 操作码: 0x00001057
         0x0000707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD | IMF_VLCYCLES },
         nullptr
     },
     {"vmul.vv", IT_R,
@@ -471,7 +471,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"d", "s", "t"},
         0x00002057,  // 操作码: 0x00002057
         0x0000707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD | IMF_VLCYCLES },
         nullptr
     },
     {"vadd.vi", IT_R,
@@ -481,7 +481,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"d", "s", "j"},  // j 表示立即数
         0x00003057,  // 操作码: 0x00003057
         0x0000707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD | IMF_VLCYCLES },
         nullptr
     },
     {"vadd.vx", IT_R,
@@ -491,7 +491,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"d", "s", "t"},  // s 表示标量寄存器
         0x00004057,  // 操作码: 0x00004057
         0x0000707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VECTOR_RD | IMF_VLCYCLES },
         nullptr
     },
     {"vredsum", IT_R,
@@ -501,7 +501,7 @@ static const struct InstructionMap VECTOR_OP_map[] = {
         {"d", "s", "t"},  // s 表示标量寄存器
         0x00005057,  // 操作码: 0x00004057
         0x0000707f,
-        { .flags = FLAGS_ALU_T_R_STD_VECTOR },
+        { .flags = FLAGS_ALU_T_R_STD_VECTOR | IMF_VLCYCLES },
         nullptr
     },
     IM_UNKNOWN,

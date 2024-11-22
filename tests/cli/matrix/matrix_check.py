@@ -57,10 +57,4 @@ result_computed_corrected = np.dot(matrix1, matrix2.T)
 result_expected = matrix3
 result_match = np.array_equal(result_computed_corrected, result_expected)
 print("Matrix multiplication result match:", result_match)
-print(f"Computed result:\n{result_computed_corrected}")
-
-# 计算第一个元素
-print(result_computed_corrected[0][0])
-print(matrix1[0])  # 第一行
-print(matrix2[0])  # 第一列
-print(matrix1[0][32:] @ matrix2[0][32:])  # 第一个元素
+# print(f"Computed result:\n{result_computed_corrected}")

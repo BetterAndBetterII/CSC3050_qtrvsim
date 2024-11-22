@@ -56,7 +56,6 @@ void Core::step(bool skip_break) {
     emit step_started();
     state.cycle_count++;
     do_step(skip_break);
-    DEBUG("Step done, cycle count: %u", state.cycle_count);
     emit step_done(state);
 }
 
@@ -397,6 +396,10 @@ DecodeState Core::decode(const FetchInterstage &dt) {
     if (flags & IMF_FORCE_W_OP)
         w_operation = true;
 
+    if (alu_op.vector_op == VectorOp::VMULV) {
+        state.cycle_count += 4;
+    }
+
     return { DecodeInternalState {
                  .alu_op_num = static_cast<unsigned>(alu_op.alu_op),
                  .excause_num = static_cast<unsigned>(excause),
@@ -547,6 +550,9 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
     enum ExceptionCause excause = dt.excause;
 
     if (excause == EXCAUSE_NONE) {
+        if (dt.inst.flags() & IMF_VLCYCLES) {
+            state.cycle_count += vregs->get_vl();
+        }
         if (dt.inst.flags() & IMF_VSETVL) {
             vregs->set_vl(towrite_val.as_u32());
             vregs->set_vtype(static_cast<uint32_t>(dt.val_rt));
@@ -560,8 +566,10 @@ MemoryState Core::memory(const ExecuteInterstage &dt) {
                     }
                 }
                 else if (memread) {
+                    state.cycle_count += 32;  // Load instruction will have a memory latency of 32
                     for (int i = 0; i < vregs->get_vl(); i++) {
                         DEBUG("Reading %d at %d", mem_data->read_u32(mem_addr + vregs->get_vtype() * i), static_cast<uint32_t>((mem_addr + vregs->get_vtype() * i).get_raw()));
+                        state.cycle_count++;  // Each read will have a latency of 1
                         towrite_vector->set_u32(i, mem_data->read_u32(mem_addr + vregs->get_vtype() * i));
                     }
                 }
